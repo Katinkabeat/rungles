@@ -516,8 +516,15 @@ dialog::backdrop {
   display: flex;
   gap: 6px;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
+.rack-tiles .tile {
+  flex: 0 1 44px;
+  min-width: 0;
+}
+/* Match rack lives inside .multi-mode which already pads horizontally —
+   drop the inner rack padding so all 7 tiles fit on one line on phones. */
+.match-rack { padding-left: 0; padding-right: 0; }
 
 .tile {
   position: relative;

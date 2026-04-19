@@ -230,12 +230,23 @@ function renderCurrent() {
   }
 }
 
+function rackDisplayOrder() {
+  // state.rack is the server's canonical order and MUST NOT be mutated
+  // client-side — word_sources indices are 1-based into that array. Shuffle
+  // only reorders this visual permutation.
+  if (!Array.isArray(state.rackOrder) || state.rackOrder.length !== state.rack.length) {
+    state.rackOrder = state.rack.map((_, i) => i);
+  }
+  return state.rackOrder;
+}
+
 function renderRack() {
   const container = els.rack();
   container.innerHTML = '';
   const usedIdxs = new Set(state.selected.filter(s => s.source === 'rack').map(s => s.idx));
-  state.rack.forEach((letter, idx) => {
-    const inWord = usedIdxs.has(idx);
+  rackDisplayOrder().forEach(serverIdx => {
+    const letter = state.rack[serverIdx];
+    const inWord = usedIdxs.has(serverIdx);
     const tile = makeTile(letter, { ghost: inWord });
     tile.addEventListener('click', async () => {
       if (inWord || !isMyTurn() || state.submitting) return;
@@ -244,7 +255,7 @@ function renderRack() {
         resolved = await pickBlankLetter();
         if (!resolved) return;
       }
-      state.selected.push({ source: 'rack', idx, letter: resolved });
+      state.selected.push({ source: 'rack', idx: serverIdx, letter: resolved });
       render();
     });
     container.append(tile);
@@ -345,18 +356,19 @@ function handleClear() {
   render();
 }
 
-// Reorder rack tiles in place (visual only, no server effect). Tiles already
-// pulled into the word builder keep their original index; only the unselected
-// rack slots are shuffled, so the selected positions don't get scrambled.
+// Reorder rack tiles visually; server's rack order is untouched. Selected
+// tiles keep their slot so the word-builder positions stay stable.
 function handleShuffle() {
+  const order = [...rackDisplayOrder()];
   const selectedIdxs = new Set(state.selected.filter(s => s.source === 'rack').map(s => s.idx));
-  const freeIdxs = state.rack.map((_, i) => i).filter(i => !selectedIdxs.has(i));
-  const freeLetters = freeIdxs.map(i => state.rack[i]);
-  for (let i = freeLetters.length - 1; i > 0; i--) {
+  const freePositions = order.map((_, p) => p).filter(p => !selectedIdxs.has(order[p]));
+  const freeValues = freePositions.map(p => order[p]);
+  for (let i = freeValues.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [freeLetters[i], freeLetters[j]] = [freeLetters[j], freeLetters[i]];
+    [freeValues[i], freeValues[j]] = [freeValues[j], freeValues[i]];
   }
-  freeIdxs.forEach((idx, k) => state.rack[idx] = freeLetters[k]);
+  freePositions.forEach((p, k) => { order[p] = freeValues[k]; });
+  state.rackOrder = order;
   render();
 }
 
@@ -484,6 +496,7 @@ async function loadAll() {
     .from('rg_racks').select('rack')
     .eq('game_id', state.gameId).eq('user_id', state.me.userId).maybeSingle();
   state.rack = rack?.rack ?? [];
+  state.rackOrder = null;
 
   // Ladder
   const { data: rungs } = await supabase
@@ -559,6 +572,7 @@ async function refreshRack() {
     .from('rg_racks').select('rack')
     .eq('game_id', state.gameId).eq('user_id', state.me.userId).maybeSingle();
   state.rack = data?.rack ?? [];
+  state.rackOrder = null;
 }
 
 // ---------- public api ----------
