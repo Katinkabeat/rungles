@@ -797,7 +797,56 @@ html[data-prepaint="authed"] .solo-mode    { display: block !important; }
   color: var(--ink-soft);
   margin-bottom: 4px;
 }
-.match-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.match-actions .btn { flex: 1 1 auto; padding: 8px 6px; font-size: 14px; min-width: 0; }
-.match-actions-meta { gap: 6px; }
-.match-actions-meta .btn { flex: 1 1 auto; padding: 6px; font-size: 13px; }
+.match-actions { display: flex; gap: 4px; }
+
+/* ---------- Icon buttons (Wordy-style: emoji over label, single row) ---------- */
+.actions-icons {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+.btn-icon {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.btn-icon:hover:not(:disabled) { background: var(--border); }
+.btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-icon-emoji { font-size: 18px; line-height: 1; }
+.btn-icon-label {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.btn-icon-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent-strong);
+}
+.btn-icon-primary:hover:not(:disabled) { background: var(--accent-strong); }
+
+.btn-icon-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.btn-icon-danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: white;
+}

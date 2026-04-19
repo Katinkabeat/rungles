@@ -107,17 +107,28 @@
       </div>
     </section>
 
-    <section class="actions">
-      <button class="btn btn-primary" type="button">Submit</button>
-      <button class="btn btn-secondary btn-clear" type="button">Clear</button>
-      <button class="btn btn-secondary" type="button">Shuffle</button>
-      <button class="btn btn-danger" type="button">Give Up</button>
+    <section class="actions actions-icons">
+      <button class="btn-icon btn-icon-primary btn-primary" type="button">
+        <span class="btn-icon-emoji">✅</span>
+        <span class="btn-icon-label">Submit</span>
+      </button>
+      <button class="btn-icon btn-clear" type="button">
+        <span class="btn-icon-emoji">↩️</span>
+        <span class="btn-icon-label">Clear</span>
+      </button>
+      <button class="btn-icon btn-secondary" type="button">
+        <span class="btn-icon-emoji">🔀</span>
+        <span class="btn-icon-label">Shuffle</span>
+      </button>
+      <button class="btn-icon btn-icon-danger btn-danger" type="button">
+        <span class="btn-icon-emoji">🏳️</span>
+        <span class="btn-icon-label">Give Up</span>
+      </button>
+      <button class="btn-icon btn-newgame" type="button">
+        <span class="btn-icon-emoji">▶️</span>
+        <span class="btn-icon-label">New</span>
+      </button>
     </section>
-    <section class="actions actions-secondary">
-      <button class="btn btn-secondary btn-newgame" type="button">New Game</button>
-    </section>
-
-    <p class="keyboard-hint">Tip: type letters on a keyboard to pick tiles, Backspace to remove, Enter to submit.</p>
     </div><!-- /.solo-mode -->
 
     <div class="multi-mode hidden">
@@ -158,15 +169,31 @@
           <div class="match-rack-tiles rack-tiles"></div>
         </section>
 
-        <div class="match-actions actions match-actions-primary">
-          <button class="btn btn-primary match-submit" type="button">Submit</button>
-          <button class="btn btn-secondary match-clear" type="button">Clear</button>
-          <button class="btn btn-secondary match-shuffle" type="button">Shuffle</button>
-          <button class="btn btn-secondary match-skip" type="button">Skip</button>
-        </div>
-        <div class="match-actions actions match-actions-meta">
-          <button class="btn btn-danger match-giveup" type="button">Give Up</button>
-          <button class="btn btn-secondary match-leave" type="button">Leave</button>
+        <div class="match-actions actions actions-icons">
+          <button class="btn-icon btn-icon-primary match-submit" type="button">
+            <span class="btn-icon-emoji">✅</span>
+            <span class="btn-icon-label">Submit</span>
+          </button>
+          <button class="btn-icon match-clear" type="button">
+            <span class="btn-icon-emoji">↩️</span>
+            <span class="btn-icon-label">Clear</span>
+          </button>
+          <button class="btn-icon match-shuffle" type="button">
+            <span class="btn-icon-emoji">🔀</span>
+            <span class="btn-icon-label">Shuffle</span>
+          </button>
+          <button class="btn-icon match-skip" type="button">
+            <span class="btn-icon-emoji">⏩</span>
+            <span class="btn-icon-label">Skip</span>
+          </button>
+          <button class="btn-icon btn-icon-danger match-giveup" type="button">
+            <span class="btn-icon-emoji">🏳️</span>
+            <span class="btn-icon-label">Give Up</span>
+          </button>
+          <button class="btn-icon match-leave" type="button">
+            <span class="btn-icon-emoji">⬅️</span>
+            <span class="btn-icon-label">Leave</span>
+          </button>
         </div>
       </section>
     </div><!-- /.multi-mode -->
@@ -247,9 +274,9 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=14"></script>
+  <script type="module" src="js/game.js?v=15"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=14';
+    import { initMultiplayer } from './js/multiplayer.js?v=15';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
   <script>
