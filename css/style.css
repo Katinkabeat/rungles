@@ -550,6 +550,14 @@ dialog::backdrop {
 
 .hidden { display: none !important; }
 
+/* Pre-paint: render the right panel synchronously based on the Supabase
+   session in localStorage so signed-in users don't see the auth gate flash
+   on cold load. multiplayer.js removes data-prepaint after the real render. */
+html[data-prepaint="anon"]   .auth-gate    { display: flex !important; }
+html[data-prepaint="authed"] .user-bar     { display: flex !important; }
+html[data-prepaint="authed"] .mode-toggle  { display: flex !important; }
+html[data-prepaint="authed"] .solo-mode    { display: block !important; }
+
 .auth-gate {
   padding: 24px 16px;
   display: flex;

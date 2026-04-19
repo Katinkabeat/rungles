@@ -380,6 +380,9 @@ export async function initMultiplayer() {
     subscribeLobby();
   }
   render();
+  // Real render is in charge now; drop the prepaint hint so toggling panels
+  // (sign in / log out / mode switch) isn't fighting !important rules.
+  delete document.documentElement.dataset.prepaint;
 
   supabase.auth.onAuthStateChange((_event, session) => {
     state.session = session;

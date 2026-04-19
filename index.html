@@ -16,6 +16,22 @@
 
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+  <script>
+    // Pre-paint hint: synchronously check if a Supabase session is stashed in
+    // localStorage and tell the CSS which panel to show. Avoids the flash of
+    // the sign-in screen for already-signed-in users on cold load / refresh.
+    // multiplayer.js removes the data-prepaint attribute after the real render.
+    (function () {
+      try {
+        var key = 'sb-yyhewndblruwxsrqzart-auth-token';
+        document.documentElement.dataset.prepaint =
+          localStorage.getItem(key) ? 'authed' : 'anon';
+      } catch (e) {
+        document.documentElement.dataset.prepaint = 'anon';
+      }
+    })();
+  </script>
 </head>
 <body>
   <div class="app">
@@ -27,7 +43,7 @@
       </div>
     </header>
 
-    <section class="auth-gate">
+    <section class="auth-gate hidden">
       <h2 class="multi-h2">Sign in to play</h2>
       <p class="multi-sub">Registration is closed for now. If you have an account, sign in below.</p>
       <form class="auth-form">
@@ -231,9 +247,9 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=11"></script>
+  <script type="module" src="js/game.js?v=12"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=11';
+    import { initMultiplayer } from './js/multiplayer.js?v=12';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
   <script>
