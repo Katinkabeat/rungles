@@ -214,6 +214,8 @@ function pickBlankLetter() {
 }
 
 function renderLadder() {
+  // Solo only shows the most recent rung mid-game — that's all you need for
+  // the carryover. The endgame modal lists the full ladder when the game ends.
   const ladder = document.querySelector('.ladder');
   ladder.innerHTML = '';
   if (state.ladder.length === 0) {
@@ -223,36 +225,20 @@ function renderLadder() {
     ladder.append(p);
     return;
   }
-  // Newest on top.
-  [...state.ladder].reverse().forEach((rung, iFromEnd) => {
-    const row = document.createElement('div');
-    row.className = 'ladder-row';
-    const trueIdx = state.ladder.length - iFromEnd; // 1-based rung number
-    const label = document.createElement('span');
-    label.className = 'ladder-label';
-    label.textContent = `Rung ${trueIdx}`;
-    const word = document.createElement('span');
-    word.className = 'ladder-word';
-    word.textContent = rung.word;
-    const score = document.createElement('span');
-    score.className = 'ladder-score';
-    score.textContent = `+${rung.rungScore}`;
-    row.append(label, word, score);
-    ladder.append(row);
-
-    // Chain connector showing letters carried into the NEXT rung (visually below this row in the DOM).
-    // Since we render newest-first, the row after this represents the older rung; the connector goes between
-    // this row (newer) and the row above it in time. Show the count BELOW each row except the last (oldest).
-    const olderRungIdx = state.ladder.length - iFromEnd - 2; // the rung ABOVE this one chronologically
-    if (olderRungIdx >= 0) {
-      const older = state.ladder[olderRungIdx];
-      const shared = multisetIntersect(older.word, rung.word);
-      const chain = document.createElement('div');
-      chain.className = 'ladder-chain';
-      chain.innerHTML = `<span class="chain-icon">↑</span> <span class="chain-count">${shared} carried</span>`;
-      ladder.append(chain);
-    }
-  });
+  const last = state.ladder[state.ladder.length - 1];
+  const row = document.createElement('div');
+  row.className = 'ladder-row';
+  const label = document.createElement('span');
+  label.className = 'ladder-label';
+  label.textContent = `Rung ${state.ladder.length}`;
+  const word = document.createElement('span');
+  word.className = 'ladder-word';
+  word.textContent = last.word;
+  const score = document.createElement('span');
+  score.className = 'ladder-score';
+  score.textContent = `+${last.rungScore}`;
+  row.append(label, word, score);
+  ladder.append(row);
 }
 
 function renderAll() {
