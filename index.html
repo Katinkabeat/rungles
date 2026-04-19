@@ -18,10 +18,9 @@
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
   <script>
-    // Pre-paint hint: synchronously check if a Supabase session is stashed in
-    // localStorage and tell the CSS which panel to show. Avoids the flash of
-    // the sign-in screen for already-signed-in users on cold load / refresh.
-    // multiplayer.js removes the data-prepaint attribute after the real render.
+    // Pre-paint hints: applied synchronously to <html> before any element
+    // renders, so neither the auth gate nor the light theme flashes for users
+    // who are already authed / prefer dark.
     (function () {
       try {
         var key = 'sb-yyhewndblruwxsrqzart-auth-token';
@@ -30,6 +29,11 @@
       } catch (e) {
         document.documentElement.dataset.prepaint = 'anon';
       }
+      try {
+        if (localStorage.getItem('rungles-theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
     })();
   </script>
 </head>
@@ -39,7 +43,7 @@
       <h1 class="app-title">Rungles</h1>
       <div class="header-actions">
         <button class="icon-btn btn-rules" type="button" aria-label="How to play">❔</button>
-        <button class="icon-btn" aria-label="Settings">⚙️</button>
+        <button class="icon-btn theme-toggle" type="button" aria-label="Toggle dark mode">🌙</button>
       </div>
     </header>
 
@@ -272,11 +276,28 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=16"></script>
+  <script type="module" src="js/game.js?v=17"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=16';
+    import { initMultiplayer } from './js/multiplayer.js?v=17';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=16"></script>
+  <script src="js/sw-update.js?v=17"></script>
+  <script>
+    // Dark mode toggle. Pre-paint script in <head> already applied the right
+    // theme; this just wires the header button + persists changes.
+    document.addEventListener('DOMContentLoaded', () => {
+      const html = document.documentElement;
+      const btn = document.querySelector('.theme-toggle');
+      if (!btn) return;
+      const syncIcon = () => { btn.textContent = html.classList.contains('dark') ? '☀️' : '🌙'; };
+      syncIcon();
+      btn.addEventListener('click', () => {
+        const nowDark = !html.classList.contains('dark');
+        html.classList.toggle('dark', nowDark);
+        try { localStorage.setItem('rungles-theme', nowDark ? 'dark' : 'light'); } catch (e) {}
+        syncIcon();
+      });
+    });
+  </script>
 </body>
 </html>
