@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2b2d42" />
+  <title>Rungles</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1 class="app-title">Rungles</h1>
+      <div class="header-actions">
+        <button class="icon-btn btn-rules" type="button" aria-label="How to play">❔</button>
+        <button class="icon-btn" aria-label="Settings">⚙️</button>
+      </div>
+    </header>
+
+    <section class="auth-gate">
+      <h2 class="multi-h2">Sign in to play</h2>
+      <p class="multi-sub">Registration is closed for now. If you have an account, sign in below.</p>
+      <form class="auth-form">
+        <label class="multi-label">
+          Email
+          <input class="auth-email" type="email" autocomplete="email" required />
+        </label>
+        <label class="multi-label">
+          Password
+          <input class="auth-password" type="password" autocomplete="current-password" required />
+        </label>
+        <div class="auth-turnstile-mount"></div>
+        <button class="btn btn-primary" type="submit">Sign in</button>
+        <p class="auth-error" role="alert"></p>
+      </form>
+    </section>
+
+    <div class="user-bar hidden">
+      <span class="user-bar-label">Signed in as <span class="auth-username"></span></span>
+      <button class="auth-logout" type="button">Log out</button>
+    </div>
+
+    <nav class="mode-toggle hidden" aria-label="Game mode">
+      <button class="mode-btn active" type="button" data-mode="solo">Solo</button>
+      <button class="mode-btn" type="button" data-mode="multi">Multiplayer</button>
+    </nav>
+
+    <div class="solo-mode hidden">
+    <section class="game-info" aria-live="polite">
+      <span class="info-rung">Rung 1 / 7</span>
+      <span class="info-score">Score: 0</span>
+    </section>
+
+    <div class="status-banner" role="status" aria-live="polite"></div>
+
+    <section class="ladder" aria-label="Previous rungs">
+      <p class="ladder-empty">Your played words will appear here.</p>
+    </section>
+
+    <section class="current-rung" aria-label="Current rung">
+      <div class="premium-indicator">
+        <span class="premium-label">2× slot: position —</span>
+      </div>
+      <div class="word-input" aria-label="Word being built">
+        <span class="word-placeholder">Tap tiles to build a word</span>
+      </div>
+      <button class="hint-btn" type="button" aria-label="Get a hint (costs 5 points)">💡 Hint <span class="hint-cost">(−5)</span></button>
+      <div class="carried-letters" aria-label="Letters carried from previous rung"></div>
+    </section>
+
+    <section class="rack" aria-label="Your tile rack">
+      <div class="rack-tiles">
+        <!-- Tile placeholders -->
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+      </div>
+    </section>
+
+    <section class="actions">
+      <button class="btn btn-primary" type="button">Submit</button>
+      <button class="btn btn-secondary btn-clear" type="button">Clear</button>
+      <button class="btn btn-secondary" type="button">Shuffle</button>
+      <button class="btn btn-danger" type="button">Give Up</button>
+    </section>
+    <section class="actions actions-secondary">
+      <button class="btn btn-secondary btn-newgame" type="button">New Game</button>
+    </section>
+
+    <p class="keyboard-hint">Tip: type letters on a keyboard to pick tiles, Backspace to remove, Enter to submit.</p>
+    </div><!-- /.solo-mode -->
+
+    <div class="multi-mode hidden">
+      <section class="lobby-panel">
+        <h2 class="multi-h2">Open games</h2>
+        <button class="btn btn-primary lobby-create" type="button">+ Create game</button>
+        <p class="lobby-empty hidden">No open games yet. Create one and someone will join.</p>
+        <div class="lobby-list" aria-live="polite"></div>
+      </section>
+
+      <section class="waiting-room hidden">
+        <h2 class="multi-h2">Waiting room</h2>
+        <p class="waiting-message">Waiting for opponent…</p>
+        <button class="btn btn-secondary waiting-leave" type="button">Back to lobby</button>
+      </section>
+
+      <section class="match-mode hidden">
+        <div class="match-header">
+          <div class="match-scores">
+            <span class="match-score-you">You: 0</span>
+            <span class="match-score-opp">Opponent: 0</span>
+          </div>
+          <div class="match-turn"></div>
+          <div class="match-rung-info"></div>
+        </div>
+
+        <div class="match-status" role="status" aria-live="polite"></div>
+
+        <section class="match-ladder" aria-label="Rungs played"></section>
+
+        <section class="match-current" aria-label="Current rung">
+          <div class="match-premium"></div>
+          <div class="match-word-input word-input" aria-label="Word being built"></div>
+          <div class="match-carried carried-letters" aria-label="Letters carried from previous rung"></div>
+        </section>
+
+        <section class="match-rack rack" aria-label="Your tile rack">
+          <div class="match-rack-tiles rack-tiles"></div>
+        </section>
+
+        <div class="match-actions actions">
+          <button class="btn btn-primary match-submit" type="button">Submit</button>
+          <button class="btn btn-secondary match-clear" type="button">Clear</button>
+          <button class="btn btn-secondary match-shuffle" type="button">Shuffle</button>
+          <button class="btn btn-secondary match-skip" type="button">Skip</button>
+        </div>
+        <div class="match-actions actions actions-secondary">
+          <button class="btn btn-danger match-giveup" type="button">Give Up</button>
+          <button class="btn btn-secondary match-leave" type="button">Leave</button>
+        </div>
+      </section>
+    </div><!-- /.multi-mode -->
+  </div>
+
+  <dialog class="blank-modal" aria-label="Pick a letter for the blank tile">
+    <div class="modal-card">
+      <h2 class="modal-title">Blank tile — pick a letter</h2>
+      <p class="modal-sub">Once chosen, this tile is locked as that letter.</p>
+      <div class="letter-grid"></div>
+      <button class="btn btn-secondary modal-dismiss" type="button">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog class="rules-modal" aria-label="How to play">
+    <div class="modal-card rules-card">
+      <h2 class="modal-title">How to Play Rungles</h2>
+
+      <h3 class="rules-h3">The goal</h3>
+      <p>Build a ladder of connected words. Each word is a "rung." The solo game is 7 rungs; multiplayer is 10.</p>
+
+      <h3 class="rules-h3">Each rung</h3>
+      <ul class="rules-list">
+        <li>You have a rack of 7 letter tiles (standard Scrabble distribution).</li>
+        <li>Your word must be at least 4 letters and in the dictionary.</li>
+        <li><strong>Rung 1:</strong> use any letters from your rack.</li>
+        <li><strong>Rung 2 and onward:</strong> your word must use at least <strong>3 letters</strong> from the previous word. These "carried" letters are shown in teal and are free — they don't consume your rack tiles.</li>
+        <li>Your rack refills back to 7 tiles after every rung.</li>
+      </ul>
+
+      <h3 class="rules-h3">Scoring</h3>
+      <ul class="rules-list">
+        <li>Only <strong>rack letters score</strong>. Carried letters are free, but earn no points.</li>
+        <li><strong>Length bonus:</strong> +2 points per letter beyond 4.</li>
+        <li><strong>2× slot:</strong> each rung has one premium position (shown as a gold slot before you play). If a rack letter lands there, its value is doubled. Carried letters don't trigger it.</li>
+      </ul>
+
+      <h3 class="rules-h3">Example</h3>
+      <p class="rules-example">Rung 1: <strong>STORE</strong> → Rung 2: <strong>TORCH</strong> (T, O, R carried from STORE; C and H from rack).</p>
+
+      <h3 class="rules-h3">Tiles</h3>
+      <ul class="rules-list">
+        <li><strong>Blanks</strong> are wildcards. Pick any letter the first time you play one — it's locked to that letter forever.</li>
+        <li>The opening rack is always playable (at least one valid word exists).</li>
+      </ul>
+
+      <h3 class="rules-h3">Buttons</h3>
+      <ul class="rules-list">
+        <li><strong>Submit:</strong> play your word.</li>
+        <li><strong>Clear:</strong> empty the word area.</li>
+        <li><strong>Shuffle:</strong> reorder the rack visually.</li>
+        <li><strong>💡 Hint (−5):</strong> reveal one word you could play. Score can go negative.</li>
+        <li><strong>Give Up:</strong> end the game. Double-click to confirm.</li>
+      </ul>
+
+      <h3 class="rules-h3">Keyboard</h3>
+      <p>Type a letter to pick it (carried first, then rack). <kbd>Backspace</kbd> removes the last tile. <kbd>Enter</kbd> submits. <kbd>Escape</kbd> clears.</p>
+
+      <h3 class="rules-h3">Multiplayer (when it's live)</h3>
+      <ul class="rules-list">
+        <li>Two players share one ladder. Each has their own rack (hidden from the other); the tile bag is shared.</li>
+        <li>You take turns adding rungs — 10 total, 5 each.</li>
+        <li>Only your own rung scores count toward your total.</li>
+        <li>If you can't form a valid word, you can <strong>Skip</strong>; the other player keeps going.</li>
+      </ul>
+
+      <button class="btn btn-primary btn-rules-close" type="button">Got it</button>
+    </div>
+  </dialog>
+
+  <dialog class="endgame-modal" aria-label="Game complete">
+    <div class="modal-card endgame-card">
+      <h2 class="endgame-title">Ladder Complete!</h2>
+      <p class="endgame-score">Final score</p>
+      <p class="endgame-number">0</p>
+      <div class="endgame-rungs"></div>
+      <button class="btn btn-primary btn-playagain" type="button">Play Again</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="js/game.js?v=8"></script>
+  <script type="module">
+    import { initMultiplayer } from './js/multiplayer.js?v=8';
+    document.addEventListener('DOMContentLoaded', initMultiplayer);
+  </script>
+</body>
+</html>
