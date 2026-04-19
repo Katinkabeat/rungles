@@ -20,24 +20,25 @@
   --shadow: 0 1px 3px rgba(40, 40, 40, 0.08);
 }
 
-/* Dark mode: variables override automatically cascades through all .var() refs. */
+/* Dark mode: variables override automatically cascades through all .var() refs.
+   Palette matches Wordy: deep purple-black base, violet text, pink accent. */
 html.dark {
-  --bg: #1a1622;
-  --surface: #25202d;
-  --ink: #ece4f3;
-  --ink-soft: #9a93a5;
-  --accent: #d4a8e8;
-  --accent-strong: #b88adb;
-  --accent-soft: #3a2d4d;
+  --bg: #0f0a1e;
+  --surface: #1a1130;
+  --ink: #ede0ff;
+  --ink-soft: #a78bfa;
+  --accent: #a78bfa;
+  --accent-strong: #c4b5fd;
+  --accent-soft: #221540;
   --teal: #6cbcbf;
-  --teal-soft: #2a3e3f;
-  --danger: #d97a92;
-  --border: #3a3145;
-  --tile-bg: #2e2538;
-  --tile-border: #d4a8e8;
-  --tile-shadow: #b88adb;
-  --carried-bg: #2a3e3f;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --teal-soft: #1e3a3b;
+  --danger: #f87171;
+  --border: #2d1b55;
+  --tile-bg: linear-gradient(145deg, #2d1b55, #1e1040);
+  --tile-border: #7c3aed;
+  --tile-shadow: #7c3aed;
+  --carried-bg: #1e3a3b;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 html.dark { color-scheme: dark; }
 
@@ -130,6 +131,58 @@ html, body {
   border-top: 1px solid var(--border);
   background: #fafaf7;
 }
+/* Kill any light surface bleed-through in dark mode. */
+html.dark .current-rung,
+html.dark .rack,
+html.dark .rack-tiles { background: transparent !important; }
+html.dark .empty-slot-premium {
+  background: #2a1f05;
+  border-color: #b45309;
+  color: #fcd34d;
+}
+html.dark .banner-ok { color: #4ade80; background: #052e16; }
+html.dark .banner-bad { color: #f87171; background: #2d0a0a; }
+html.dark .chain-icon { background: #1e3a3b; color: #6cbcbf; }
+html.dark .chain-count { color: #6cbcbf; }
+
+/* ── Tiles: match Wordy exactly (dark gradient face, light text). ── */
+html.dark .tile {
+  border-width: 1.5px;
+  color: #ede0ff;
+  box-shadow: 2px 3px 0 rgba(124, 58, 237, 0.5);
+}
+html.dark .tile:hover { box-shadow: 3px 4px 0 rgba(124, 58, 237, 0.6); }
+html.dark .tile:active { box-shadow: 1px 2px 0 rgba(124, 58, 237, 0.5); }
+html.dark .tile-value { color: #c4b5fd; }
+html.dark .letter-btn { color: #ede0ff; }
+
+/* ── Buttons: match Wordy's purple-gradient primary (both themes). ── */
+.btn-primary,
+.btn-icon-primary {
+  background: linear-gradient(135deg, #9333ea, #7e22ce) !important;
+  color: #fff !important;
+  border-color: #7e22ce !important;
+  box-shadow: 0 3px 0 #581c87;
+}
+.btn-icon-primary .btn-icon-label { color: #e9d5ff !important; }
+.btn-primary:hover,
+.btn-icon-primary:hover { filter: brightness(1.08); }
+
+/* ── Dark icon buttons (Wordy's exact palette). ── */
+html.dark .btn-icon-secondary,
+html.dark .btn-secondary {
+  background: #1a1130;
+  border-color: #6d28d9;
+  color: #c4b5fd;
+}
+html.dark .btn-icon-secondary .btn-icon-label { color: #c4b5fd; }
+html.dark .btn-icon-danger,
+html.dark .btn-danger {
+  background: #2d1215;
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 
 .premium-indicator {
   font-size: 0.85rem;
