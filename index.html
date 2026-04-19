@@ -3,8 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#2b2d42" />
   <title>Rungles</title>
+
+  <!-- PWA: installable as an app on iOS / Android home screens -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
+  <meta name="theme-color" content="#c99be5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Rungles" />
+
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -222,10 +231,20 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=8"></script>
+  <script type="module" src="js/game.js?v=9"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=8';
+    import { initMultiplayer } from './js/multiplayer.js?v=9';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
+  </script>
+  <script>
+    // Register the service worker so iOS / Android can offer "Add to Home Screen".
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => {
+          console.warn('Service worker registration failed:', err);
+        });
+      });
+    }
   </script>
 </body>
 </html>

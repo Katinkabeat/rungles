@@ -1,0 +1,19 @@
+{
+  "name": "Rungles",
+  "short_name": "Rungles",
+  "description": "Build a ladder of words. Solo or against a friend.",
+  "start_url": "/rungles/",
+  "scope": "/rungles/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#c99be5",
+  "background_color": "#fcfaf7",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
