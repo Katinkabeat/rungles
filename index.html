@@ -142,13 +142,13 @@
           <div class="match-rack-tiles rack-tiles"></div>
         </section>
 
-        <div class="match-actions actions">
+        <div class="match-actions actions match-actions-primary">
           <button class="btn btn-primary match-submit" type="button">Submit</button>
           <button class="btn btn-secondary match-clear" type="button">Clear</button>
           <button class="btn btn-secondary match-shuffle" type="button">Shuffle</button>
           <button class="btn btn-secondary match-skip" type="button">Skip</button>
         </div>
-        <div class="match-actions actions actions-secondary">
+        <div class="match-actions actions match-actions-meta">
           <button class="btn btn-danger match-giveup" type="button">Give Up</button>
           <button class="btn btn-secondary match-leave" type="button">Leave</button>
         </div>
@@ -231,9 +231,9 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=9"></script>
+  <script type="module" src="js/game.js?v=10"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=9';
+    import { initMultiplayer } from './js/multiplayer.js?v=10';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
   <script>
