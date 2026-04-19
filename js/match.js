@@ -128,26 +128,29 @@ function renderHeader() {
 }
 
 function renderLadder() {
+  // Mid-game we only need the most recent rung (the carryover source) plus
+  // the seed (which is the carryover source for rung 1). The endgame modal
+  // shows the full ladder when the game ends.
   const ladder = els.ladder();
   ladder.innerHTML = '';
-  // Played rungs, newest at top.
-  [...state.rungs].reverse().forEach(rung => {
+  if (state.rungs.length > 0) {
+    const last = state.rungs[state.rungs.length - 1];
     const row = document.createElement('div');
     row.className = 'ladder-row';
-    const who = rung.player_user_id === state.me.userId ? 'You' : state.opponent.username;
+    const who = last.player_user_id === state.me.userId ? 'You' : state.opponent.username;
     const label = document.createElement('span');
     label.className = 'ladder-label';
-    label.textContent = `Rung ${rung.rung_number} (${who})`;
+    label.textContent = `Rung ${last.rung_number} (${who})`;
     const word = document.createElement('span');
     word.className = 'ladder-word';
-    word.textContent = rung.word;
+    word.textContent = last.word;
     const score = document.createElement('span');
     score.className = 'ladder-score';
-    score.textContent = `+${rung.rung_score}`;
+    score.textContent = `+${last.rung_score}`;
     row.append(label, word, score);
     ladder.append(row);
-  });
-  // Seed word at the bottom — the source rung 1 carries from.
+  }
+  // Seed word at the bottom.
   if (state.game?.seed_word) {
     const seedRow = document.createElement('div');
     seedRow.className = 'ladder-row ladder-seed';
