@@ -96,6 +96,7 @@
       </div>
       <button class="hint-btn" type="button" aria-label="Get a hint (costs 5 points)">💡 Hint <span class="hint-cost">(−5)</span></button>
       <div class="carried-letters" aria-label="Letters carried from previous rung"></div>
+      <div class="solo-preview score-preview" aria-live="polite"></div>
     </section>
 
     <section class="rack" aria-label="Your tile rack">
@@ -148,13 +149,16 @@
       </section>
 
       <section class="match-mode hidden">
+        <div class="match-topbar">
+          <button class="match-back" type="button" aria-label="Back to lobby">← Lobby</button>
+          <div class="match-rung-info"></div>
+        </div>
         <div class="match-header">
           <div class="match-scores">
             <span class="match-score-you">You: 0</span>
             <span class="match-score-opp">Opponent: 0</span>
           </div>
           <div class="match-turn"></div>
-          <div class="match-rung-info"></div>
         </div>
 
         <div class="match-status" role="status" aria-live="polite"></div>
@@ -165,6 +169,7 @@
           <div class="match-premium"></div>
           <div class="match-word-input word-input" aria-label="Word being built"></div>
           <div class="match-carried carried-letters" aria-label="Letters carried from previous rung"></div>
+          <div class="match-preview score-preview" aria-live="polite"></div>
         </section>
 
         <section class="match-rack rack" aria-label="Your tile rack">
@@ -191,10 +196,6 @@
           <button class="btn-icon btn-icon-danger match-giveup" type="button">
             <span class="btn-icon-emoji">🏳️</span>
             <span class="btn-icon-label">Give Up</span>
-          </button>
-          <button class="btn-icon match-leave" type="button">
-            <span class="btn-icon-emoji">⬅️</span>
-            <span class="btn-icon-label">Leave</span>
           </button>
         </div>
       </section>
@@ -276,12 +277,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=17"></script>
+  <script type="module" src="js/game.js?v=18"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=17';
+    import { initMultiplayer } from './js/multiplayer.js?v=18';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=17"></script>
+  <script src="js/sw-update.js?v=18"></script>
   <script>
     // Dark mode toggle. Pre-paint script in <head> already applied the right
     // theme; this just wires the header button + persists changes.

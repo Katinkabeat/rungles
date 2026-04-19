@@ -332,6 +332,48 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 .ladder-label { color: var(--ink-soft); font-size: 0.85rem; min-width: 64px; }
 .ladder-word { font-weight: 700; letter-spacing: 0.5px; flex: 1; }
 .ladder-score { color: var(--accent-strong); font-weight: 600; font-size: 0.9rem; }
+.ladder-letter { display: inline-block; }
+.ladder-letter-carried { color: #2a7a5a; }
+html.dark .ladder-letter-carried { color: #4ade80; }
+
+/* Live score preview as tiles are placed. Small pill near the word builder. */
+.score-preview {
+  min-height: 20px;
+  margin: 4px auto 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+  text-align: center;
+}
+.score-preview-active {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+.solo-preview { display: block; }
+.match-preview { display: block; margin-top: 6px; }
+
+/* Top bar with back button + rung counter, replaces the old match-leave. */
+.match-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0 6px;
+}
+.match-back {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: inherit;
+}
+.match-back:hover { background: var(--border); color: var(--ink); }
 
 .ladder-chain {
   display: flex;

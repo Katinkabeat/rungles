@@ -233,12 +233,36 @@ function renderLadder() {
   label.textContent = `Rung ${state.ladder.length}`;
   const word = document.createElement('span');
   word.className = 'ladder-word';
-  word.textContent = last.word;
+  // Paint each letter; carried positions get the green class so players can
+  // see at a glance which letters came from the previous rung.
+  const letters = last.word.toUpperCase().split('');
+  letters.forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'ladder-letter';
+    span.textContent = ch;
+    if (last.sources && last.sources[i] === 'carried') {
+      span.classList.add('ladder-letter-carried');
+    }
+    word.append(span);
+  });
   const score = document.createElement('span');
   score.className = 'ladder-score';
   score.textContent = `+${last.rungScore}`;
   row.append(label, word, score);
   ladder.append(row);
+}
+
+function renderPreview() {
+  const el = document.querySelector('.solo-preview');
+  if (!el) return;
+  if (!state.selected || state.selected.length === 0) {
+    el.textContent = '';
+    el.classList.remove('score-preview-active');
+    return;
+  }
+  const pts = scoreRung(state.selected, state.premiumPos);
+  el.textContent = `+${pts} pts`;
+  el.classList.add('score-preview-active');
 }
 
 function renderAll() {
@@ -248,6 +272,7 @@ function renderAll() {
   renderWordInput();
   renderRack();
   renderLadder();
+  renderPreview();
 }
 
 // ---------- flash feedback ----------
@@ -302,6 +327,7 @@ function handleSubmit() {
     word,
     rungScore,
     premiumPos: state.premiumPos,
+    sources: state.selected.map(s => s.source),
   });
   pulseScore();
 

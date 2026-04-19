@@ -3,6 +3,7 @@
 
 import { supabase } from './supabase-client.js';
 import { LETTER_VALUES } from './tiles.js';
+import { scoreRung } from './scoring.js';
 
 const MIN_WORD_LEN = 4;
 const CARRY_REQUIRED = 3;
@@ -24,7 +25,8 @@ const els = {
   shuffleBtn:  () => document.querySelector('.match-shuffle'),
   skipBtn:     () => document.querySelector('.match-skip'),
   giveUpBtn:   () => document.querySelector('.match-giveup'),
-  leaveBtn:    () => document.querySelector('.match-leave'),
+  leaveBtn:    () => document.querySelector('.match-back'),
+  preview:     () => document.querySelector('.match-preview'),
   endModal:    () => document.querySelector('.endgame-modal'),
   endTitle:    () => document.querySelector('.endgame-modal .endgame-title'),
   endNumber:   () => document.querySelector('.endgame-modal .endgame-number'),
@@ -106,6 +108,7 @@ function render() {
   renderLadder();
   renderCurrent();
   renderRack();
+  renderPreview();
   renderActions();
   renderStatus();
 }
@@ -127,6 +130,39 @@ function renderHeader() {
   els.rungInfo().textContent = `Rung ${Math.min(nextRungNumber(), state.game?.total_rungs ?? 10)} / ${state.game?.total_rungs ?? 10}`;
 }
 
+// Paint each letter of `word` into `container`. Letters that could have been
+// carried from `prevWord` (by pool-matching with multiplicity) get the
+// carried-letter class so they render green. Used for ladder rows where we
+// don't have the player's exact word_sources (opponent rungs, or historic
+// rungs before the client joined).
+function appendWordWithCarryHighlight(container, word, prevWord) {
+  const pool = (prevWord || '').toUpperCase().split('');
+  for (const ch of (word || '').toUpperCase()) {
+    const span = document.createElement('span');
+    span.className = 'ladder-letter';
+    span.textContent = ch;
+    const poolIdx = pool.indexOf(ch);
+    if (poolIdx !== -1) {
+      span.classList.add('ladder-letter-carried');
+      pool[poolIdx] = null;
+    }
+    container.append(span);
+  }
+}
+
+function renderPreview() {
+  const el = els.preview();
+  if (!el) return;
+  if (!state.selected || state.selected.length === 0) {
+    el.textContent = '';
+    el.classList.remove('score-preview-active');
+    return;
+  }
+  const pts = scoreRung(state.selected, state.premiumPos);
+  el.textContent = `+${pts} pts`;
+  el.classList.add('score-preview-active');
+}
+
 function renderLadder() {
   // Mid-game we only need the most recent rung (the carryover source) plus
   // the seed (which is the carryover source for rung 1). The endgame modal
@@ -135,6 +171,9 @@ function renderLadder() {
   ladder.innerHTML = '';
   if (state.rungs.length > 0) {
     const last = state.rungs[state.rungs.length - 1];
+    const prev = last.rung_number === 1
+      ? (state.game?.seed_word ?? '')
+      : (state.rungs[state.rungs.length - 2]?.word ?? '');
     const row = document.createElement('div');
     row.className = 'ladder-row';
     const who = last.player_user_id === state.me.userId ? 'You' : state.opponent.username;
@@ -143,7 +182,7 @@ function renderLadder() {
     label.textContent = `Rung ${last.rung_number} (${who})`;
     const word = document.createElement('span');
     word.className = 'ladder-word';
-    word.textContent = last.word;
+    appendWordWithCarryHighlight(word, last.word, prev);
     const score = document.createElement('span');
     score.className = 'ladder-score';
     score.textContent = `+${last.rung_score}`;
