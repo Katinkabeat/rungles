@@ -124,11 +124,9 @@
         <span class="btn-icon-emoji">🏳️</span>
         <span class="btn-icon-label">Give Up</span>
       </button>
-      <button class="btn-icon btn-newgame" type="button">
-        <span class="btn-icon-emoji">▶️</span>
-        <span class="btn-icon-label">New</span>
-      </button>
     </section>
+    <!-- Hidden: New Game is reachable via Give Up → endgame modal "Play Again". -->
+    <button class="btn-newgame hidden" type="button" aria-hidden="true"></button>
     </div><!-- /.solo-mode -->
 
     <div class="multi-mode hidden">
@@ -274,20 +272,11 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=15"></script>
+  <script type="module" src="js/game.js?v=16"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=15';
+    import { initMultiplayer } from './js/multiplayer.js?v=16';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script>
-    // Register the service worker so iOS / Android can offer "Add to Home Screen".
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => {
-          console.warn('Service worker registration failed:', err);
-        });
-      });
-    }
-  </script>
+  <script src="js/sw-update.js?v=16"></script>
 </body>
 </html>
