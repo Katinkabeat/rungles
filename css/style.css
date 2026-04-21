@@ -759,9 +759,10 @@ dialog::backdrop {
    session in localStorage so signed-in users don't see the auth gate flash
    on cold load. multiplayer.js removes data-prepaint after the real render. */
 html[data-prepaint="anon"]   .auth-gate    { display: flex !important; }
-html[data-prepaint="authed"] .user-bar     { display: flex !important; }
+html[data-prepaint="authed"] .settings-wrap { display: block !important; }
 html[data-prepaint="authed"] .mode-toggle  { display: flex !important; }
 html[data-prepaint="authed"] .solo-mode    { display: block !important; }
+html[data-prepaint="authed"] .anon-only    { display: none !important; }
 
 .auth-gate {
   padding: 24px 16px;
@@ -775,17 +776,50 @@ html[data-prepaint="authed"] .solo-mode    { display: block !important; }
 }
 .auth-help a { color: var(--accent-strong); }
 
-.user-bar {
+/* Settings dropdown — matches Wordy's lobby settings menu. */
+.settings-wrap { position: relative; }
+.settings-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(40, 40, 40, 0.12);
+  padding: 4px 0;
+  animation: settings-slide 0.12s ease-out;
+}
+html.dark .settings-dropdown {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  font-size: 12px;
-  color: var(--ink-soft);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  font-size: 0.9rem;
 }
-.user-bar-label .auth-username { font-weight: 600; color: var(--ink); }
+.settings-row + .settings-row { border-top: 1px solid var(--border); }
+.settings-label { font-weight: 600; color: var(--ink-soft); }
+.settings-value { font-weight: 700; color: var(--ink); }
+.settings-action {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+.settings-action:hover { color: var(--accent); }
+.settings-logout { color: var(--danger); }
+.settings-logout:hover { color: var(--danger); opacity: 0.8; }
+@keyframes settings-slide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 .mode-toggle {
   display: flex;

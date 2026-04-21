@@ -601,8 +601,10 @@ document.addEventListener('DOMContentLoaded', () => {
   solo?.querySelector('.btn-primary')?.addEventListener('click', handleSubmit);
   solo?.querySelector('.btn-clear')?.addEventListener('click', handleClear);
   solo?.querySelector('.hint-btn')?.addEventListener('click', handleHint);
-  document.querySelector('.btn-rules')?.addEventListener('click', () => {
-    document.querySelector('.rules-modal')?.showModal();
+  document.querySelectorAll('.btn-rules').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelector('.rules-modal')?.showModal();
+    });
   });
   document.querySelector('.btn-rules-close')?.addEventListener('click', () => {
     document.querySelector('.rules-modal')?.close();

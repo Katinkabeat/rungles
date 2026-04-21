@@ -12,7 +12,7 @@ const els = {
   authError:  () => document.querySelector('.auth-error'),
   authUser:   () => document.querySelector('.auth-username'),
   authLogout: () => document.querySelector('.auth-logout'),
-  userBar:    () => document.querySelector('.user-bar'),
+  userBar:    () => document.querySelector('.settings-wrap'),
   modeToggle: () => document.querySelector('.mode-toggle'),
   modeSolo:   () => document.querySelector('[data-mode="solo"]'),
   modeMulti:  () => document.querySelector('[data-mode="multi"]'),
@@ -72,6 +72,7 @@ function render() {
 
   els.authGate().classList.toggle('hidden', authed);
   els.userBar().classList.toggle('hidden', !authed);
+  document.querySelectorAll('.anon-only').forEach(el => el.classList.toggle('hidden', authed));
   els.modeToggle().classList.toggle('hidden', !authed);
   els.soloMode().classList.toggle('hidden', !authed || state.mode !== 'solo');
   els.multiMode().classList.toggle('hidden', !authed || state.mode !== 'multi');

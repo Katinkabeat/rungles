@@ -42,8 +42,27 @@
     <header class="app-header">
       <h1 class="app-title">Rungles</h1>
       <div class="header-actions">
-        <button class="icon-btn btn-rules" type="button" aria-label="How to play">❔</button>
-        <button class="icon-btn theme-toggle" type="button" aria-label="Toggle dark mode">🌙</button>
+        <button class="icon-btn btn-rules anon-only" type="button" aria-label="How to play">❔</button>
+        <div class="settings-wrap authed-only hidden">
+          <button class="icon-btn settings-toggle" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">⚙️</button>
+          <div class="settings-dropdown hidden" role="menu">
+            <div class="settings-row">
+              <span class="settings-label">Name</span>
+              <span class="settings-value auth-username">…</span>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">How to play</span>
+              <button class="settings-action btn-rules" type="button">Open</button>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Theme</span>
+              <button class="settings-action theme-toggle" type="button">🌙 Dark</button>
+            </div>
+            <div class="settings-row">
+              <button class="settings-action settings-logout auth-logout" type="button">Log out</button>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -64,11 +83,6 @@
         <p class="auth-error" role="alert"></p>
       </form>
     </section>
-
-    <div class="user-bar hidden">
-      <span class="user-bar-label">Signed in as <span class="auth-username"></span></span>
-      <button class="auth-logout" type="button">Log out</button>
-    </div>
 
     <nav class="mode-toggle hidden" aria-label="Game mode">
       <button class="mode-btn active" type="button" data-mode="solo">Solo</button>
@@ -292,19 +306,49 @@
   </script>
   <script src="js/sw-update.js?v=19"></script>
   <script>
-    // Dark mode toggle. Pre-paint script in <head> already applied the right
-    // theme; this just wires the header button + persists changes.
+    // Dark mode toggle + settings dropdown wiring.
     document.addEventListener('DOMContentLoaded', () => {
       const html = document.documentElement;
-      const btn = document.querySelector('.theme-toggle');
-      if (!btn) return;
-      const syncIcon = () => { btn.textContent = html.classList.contains('dark') ? '☀️' : '🌙'; };
-      syncIcon();
-      btn.addEventListener('click', () => {
-        const nowDark = !html.classList.contains('dark');
-        html.classList.toggle('dark', nowDark);
-        try { localStorage.setItem('rungles-theme', nowDark ? 'dark' : 'light'); } catch (e) {}
-        syncIcon();
+      const themeBtn = document.querySelector('.theme-toggle');
+      if (themeBtn) {
+        const syncLabel = () => {
+          themeBtn.textContent = html.classList.contains('dark') ? '☀️ Light' : '🌙 Dark';
+        };
+        syncLabel();
+        themeBtn.addEventListener('click', () => {
+          const nowDark = !html.classList.contains('dark');
+          html.classList.toggle('dark', nowDark);
+          try { localStorage.setItem('rungles-theme', nowDark ? 'dark' : 'light'); } catch (e) {}
+          syncLabel();
+        });
+      }
+
+      const wrap = document.querySelector('.settings-wrap');
+      const toggle = wrap?.querySelector('.settings-toggle');
+      const menu = wrap?.querySelector('.settings-dropdown');
+      if (!wrap || !toggle || !menu) return;
+
+      const close = () => {
+        menu.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+      };
+      const open = () => {
+        menu.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+      };
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.contains('hidden') ? open() : close();
+      });
+      document.addEventListener('click', (e) => {
+        if (!wrap.contains(e.target)) close();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+      });
+      // Close after any row action fires (rules/theme/logout all live inside).
+      menu.addEventListener('click', (e) => {
+        if (e.target.closest('.settings-action')) close();
       });
     });
   </script>
