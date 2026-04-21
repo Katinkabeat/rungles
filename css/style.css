@@ -251,19 +251,19 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
   flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
-  justify-content: center;
 }
 .carried-row .tile-small {
-  flex: 0 1 30px;
+  flex: 1 1 0;
   min-width: 0;
+  max-width: 44px;
 }
 
 .tile-small {
-  width: 30px;
-  height: 36px;
-  font-size: 0.95rem;
+  width: 40px;
+  height: 44px;
+  font-size: 1.1rem;
 }
-.tile-small .tile-value { font-size: 0.55rem; bottom: 2px; right: 3px; }
+.tile-small .tile-value { font-size: 0.6rem; bottom: 2px; right: 3px; }
 
 /* Carried tiles (non-scoring) — grey so they read as "free" next to the
    purple rack tiles and gold 2× slot. Applied both in the carried row above
@@ -879,10 +879,10 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 .menu-back:hover, .menu-back:focus-visible { background: var(--border); }
 
 .multi-mode {
-  padding: 12px 16px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
 }
@@ -996,10 +996,14 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 .match-mode {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   /* Fill the leftover space inside .multi-mode so the ladder can claim it. */
   flex: 1;
   min-height: 0;
+  /* Safety net: if the total content exceeds viewport (e.g. tiny phones,
+     iOS URL bar eating dvh at load), let the user scroll instead of
+     clipping the action buttons below the fold. */
+  overflow-y: auto;
 }
 .match-header {
   display: flex;
@@ -1059,13 +1063,16 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 8px;
+  padding: 6px 8px;
 }
 .match-premium {
   font-size: 12px;
   color: var(--ink-soft);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
+.match-current .word-input { margin-bottom: 4px; }
+.match-current .carried-letters { min-height: 0; margin-bottom: 2px; }
+.match-current .carried-label { font-size: 11px; margin-bottom: 2px; }
 .match-actions { display: flex; gap: 4px; }
 
 /* ---------- Icon buttons (Wordy-style: emoji over label, single row) ---------- */
