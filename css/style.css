@@ -345,8 +345,10 @@ button.empty-slot:hover { border-style: solid; }
 .ladder-word { font-weight: 700; letter-spacing: 0.5px; flex: 1; }
 .ladder-score { color: var(--accent-strong); font-weight: 600; font-size: 0.9rem; }
 .ladder-letter { display: inline-block; }
-.ladder-letter-carried { color: #2a7a5a; }
-html.dark .ladder-letter-carried { color: #4ade80; }
+.ladder-letter-carried { color: #525252; }
+html.dark .ladder-letter-carried { color: #a1a1aa; }
+.ladder-letter-premium { color: #c07b00; font-weight: 800; }
+html.dark .ladder-letter-premium { color: #fcd34d; }
 
 /* Tappable ladder row hints that there's history to see. */
 .ladder-row.ladder-tappable {

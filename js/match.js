@@ -138,9 +138,10 @@ function renderHeader() {
 // carried-letter class so they render green. Used for ladder rows where we
 // don't have the player's exact word_sources (opponent rungs, or historic
 // rungs before the client joined).
-function appendWordWithCarryHighlight(container, word, prevWord) {
+function appendWordWithCarryHighlight(container, word, prevWord, premiumPos) {
   const pool = (prevWord || '').toUpperCase().split('');
-  for (const ch of (word || '').toUpperCase()) {
+  const letters = (word || '').toUpperCase().split('');
+  letters.forEach((ch, i) => {
     const span = document.createElement('span');
     span.className = 'ladder-letter';
     span.textContent = ch;
@@ -148,9 +149,11 @@ function appendWordWithCarryHighlight(container, word, prevWord) {
     if (poolIdx !== -1) {
       span.classList.add('ladder-letter-carried');
       pool[poolIdx] = null;
+    } else if (premiumPos && (i + 1) === premiumPos) {
+      span.classList.add('ladder-letter-premium');
     }
     container.append(span);
-  }
+  });
 }
 
 // Mid-game ladder history popup for multi. Includes the seed at the bottom.
@@ -171,7 +174,7 @@ function openMatchHistoryModal() {
     label.textContent = `Rung ${r.rung_number} (${who})`;
     const word = document.createElement('span');
     word.className = 'ladder-word';
-    appendWordWithCarryHighlight(word, r.word, prev);
+    appendWordWithCarryHighlight(word, r.word, prev, r.premium_pos);
     const score = document.createElement('span');
     score.className = 'ladder-score';
     score.textContent = `+${r.rung_score}`;
@@ -241,7 +244,7 @@ function renderLadder() {
     label.textContent = `Rung ${last.rung_number} (${who})`;
     const word = document.createElement('span');
     word.className = 'ladder-word';
-    appendWordWithCarryHighlight(word, last.word, prev);
+    appendWordWithCarryHighlight(word, last.word, prev, last.premium_pos);
     const score = document.createElement('span');
     score.className = 'ladder-score';
     score.textContent = `+${last.rung_score}`;

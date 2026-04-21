@@ -336,8 +336,11 @@ function renderLadder() {
     const span = document.createElement('span');
     span.className = 'ladder-letter';
     span.textContent = ch;
-    if (last.sources && last.sources[i] === 'carried') {
+    const fromCarried = last.sources && last.sources[i] === 'carried';
+    if (fromCarried) {
       span.classList.add('ladder-letter-carried');
+    } else if (last.premiumPos && (i + 1) === last.premiumPos) {
+      span.classList.add('ladder-letter-premium');
     }
     word.append(span);
   });
@@ -487,8 +490,11 @@ function openHistoryModal() {
       const span = document.createElement('span');
       span.className = 'ladder-letter';
       span.textContent = ch;
-      if (rung.sources && rung.sources[j] === 'carried') {
+      const fromCarried = rung.sources && rung.sources[j] === 'carried';
+      if (fromCarried) {
         span.classList.add('ladder-letter-carried');
+      } else if (rung.premiumPos && (j + 1) === rung.premiumPos) {
+        span.classList.add('ladder-letter-premium');
       }
       word.append(span);
     });
