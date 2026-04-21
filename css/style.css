@@ -52,9 +52,9 @@ html, body {
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.4;
-  /* Lock to the visible viewport so phones don't scroll the whole page. */
+  /* Let the page scroll when content exceeds viewport so sticky-bottom
+     actions pin to the actual visible viewport (Wordy pattern). */
   min-height: 100dvh;
-  overflow: hidden;
 }
 
 .app {
@@ -71,14 +71,17 @@ html, body {
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-/* Solo mode: let the mode scroll so sticky bottom actions have a scroll
-   ancestor to pin against. */
+/* Solo mode: flex column whose height is AT LEAST the remaining viewport
+   below the header. On short content the ladder (flex:1 1 0) grows to push
+   actions to the bottom. On tall content the container grows with content
+   and the page scrolls — sticky actions always pin to the viewport bottom. */
 .solo-mode {
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  /* Header is ~61px; subtract so the solo area + header together equal
+     the viewport height on first paint. */
+  min-height: calc(100dvh - 61px);
 }
 
 /* Header */
@@ -118,11 +121,14 @@ html, body {
   font-weight: 500;
 }
 
-/* Ladder */
+/* Ladder.
+   flex:1 0 auto = basis auto (so content size is visible to parent's
+   flex measurement, critical for solo-mode to grow with content and
+   sticky actions to pin correctly), grow 1 (absorb leftover on short
+   content), shrink 0 (don't compress below content). */
 .ladder {
-  flex: 1 1 0;
+  flex: 1 0 auto;
   padding: 8px 16px;
-  overflow-y: auto;
   min-height: 60px;
 }
 
@@ -897,8 +903,8 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 auto;
+  min-height: calc(100dvh - 61px);
 }
 
 .multi-h2 {
@@ -1011,10 +1017,9 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  /* Fill the leftover space inside .multi-mode so the ladder can claim it. */
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  /* Fill leftover space on short content; grow with content on overflow so
+     sticky actions pin to viewport bottom (Wordy pattern). */
+  flex: 1 0 auto;
 }
 .match-header {
   display: flex;
@@ -1057,10 +1062,11 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Take whatever space is left after the fixed-size sections; scroll inside. */
-  flex: 1 1 0;
+  /* flex: 1 0 auto so content size is visible to parent's flex measurement
+     (needed for sticky actions to pin correctly when the match view is
+     taller than the viewport). */
+  flex: 1 0 auto;
   min-height: 60px;
-  overflow-y: auto;
   padding: 2px;
 }
 .ladder-seed {
