@@ -14,6 +14,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Rungles" />
 
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
@@ -89,17 +92,21 @@
     </section>
 
     <div class="landing hidden">
-      <button class="btn-landing play-solo" type="button">
-        <span class="btn-landing-icon">🎯</span>
-        <span class="btn-landing-label">Play Solo</span>
-        <span class="btn-landing-sub">7 rungs, just you</span>
-      </button>
+      <section class="card landing-solo">
+        <h2 class="card-heading font-display">🎯 Solo</h2>
+        <p class="card-sub">Climb a 7-rung ladder on your own.</p>
+        <button class="btn btn-primary play-solo" type="button">▶ Play Solo</button>
+      </section>
 
-      <section class="landing-multi">
-        <h2 class="multi-h2">Multiplayer</h2>
-        <button class="btn btn-primary lobby-create" type="button">+ Create game</button>
-        <p class="lobby-empty hidden">No open games yet. Create one and someone will join.</p>
+      <section class="card landing-multi">
+        <h2 class="card-heading font-display">🪜 Multiplayer</h2>
+        <p class="card-sub">Create a game or jump into an open one.</p>
+        <button class="btn btn-primary lobby-create" type="button">✨ Create game</button>
         <div class="lobby-list" aria-live="polite"></div>
+        <div class="lobby-empty hidden">
+          <div class="empty-icon">🟣</div>
+          <p class="empty-text font-display">No open games yet — create one!</p>
+        </div>
       </section>
     </div>
 
