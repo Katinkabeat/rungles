@@ -360,7 +360,7 @@ button.empty-slot:hover { border-style: solid; }
 .ladder-label { color: var(--ink-soft); font-size: 0.85rem; min-width: 64px; }
 .ladder-word { font-weight: 700; letter-spacing: 0.5px; flex: 1; }
 .ladder-score { color: var(--accent-strong); font-weight: 600; font-size: 0.9rem; }
-.ladder-letter { display: inline-block; }
+.ladder-letter { display: inline-block; color: var(--accent-strong); }
 .ladder-letter-carried { color: #525252; }
 html.dark .ladder-letter-carried { color: #a1a1aa; }
 .ladder-letter-premium { color: #c07b00; font-weight: 800; }
