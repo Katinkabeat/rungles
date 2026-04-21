@@ -112,10 +112,10 @@ html, body {
 
 /* Ladder */
 .ladder {
-  flex: 1;
-  padding: 12px 16px;
+  flex: 1 1 0;
+  padding: 8px 16px;
   overflow-y: auto;
-  min-height: 100px;
+  min-height: 60px;
 }
 
 .ladder-empty {
@@ -127,7 +127,7 @@ html, body {
 
 /* Current rung */
 .current-rung {
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-top: 1px solid var(--border);
   background: #fafaf7;
 }
@@ -598,7 +598,7 @@ dialog::backdrop {
 
 /* Rack */
 .rack {
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-top: 1px solid var(--border);
 }
 
@@ -687,8 +687,8 @@ dialog::backdrop {
 /* Actions */
 .actions {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px 16px;
+  gap: 6px;
+  padding: 8px 12px 12px;
   border-top: 1px solid var(--border);
 }
 
