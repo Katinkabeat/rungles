@@ -3,6 +3,7 @@
 
 import { supabase } from './supabase-client.js';
 import { startMatch, stopMatch } from './match.js';
+import { initNotificationBanner, resyncPushSubscription } from './notifications.js';
 
 const els = {
   authGate:   () => document.querySelector('.auth-gate'),
@@ -117,6 +118,12 @@ async function loadProfile() {
     .maybeSingle();
   state.profile = data ?? { username: state.session.user.email };
   if (els.authUser()) els.authUser().textContent = state.profile.username;
+
+  // Push notifications: re-sync existing sub + render banner. Fire-and-forget
+  // so it never blocks the lobby from rendering.
+  const uid = state.session.user.id;
+  resyncPushSubscription(uid).catch(() => {});
+  initNotificationBanner(uid).catch(() => {});
 }
 
 async function handleSignIn(e) {
@@ -362,6 +369,20 @@ function escapeHtml(str) {
   }[c]));
 }
 
+// ---------- deep-link handling ----------
+
+async function handleDeepLink() {
+  if (!state.session) return;
+  const params = new URLSearchParams(window.location.search);
+  const gameId = params.get('game');
+  if (!gameId) return;
+  // Clear the query param so a later refresh doesn't re-trigger it.
+  const clean = window.location.pathname + window.location.hash;
+  window.history.replaceState({}, '', clean);
+  // Enter waiting room; if the game's already active it'll jump straight to match.
+  enterWaitingRoom(gameId, 'Loading game…');
+}
+
 // ---------- boot ----------
 
 export async function initMultiplayer() {
@@ -388,7 +409,18 @@ export async function initMultiplayer() {
     await loadProfile();
     subscribeLobby();
   }
+  // Deep-link: push notifications carry ?game=<id> so tapping one drops you
+  // straight into that match (if you're authed and in it).
+  await handleDeepLink();
   render();
+
+  // SW posts NAVIGATE when the user taps a notification while the tab is open.
+  navigator.serviceWorker?.addEventListener('message', (e) => {
+    if (e.data?.type === 'NAVIGATE' && e.data.url) {
+      const match = e.data.url.match(/[?&]game=([0-9a-f-]+)/i);
+      if (match && state.session) enterWaitingRoom(match[1], 'Resuming…');
+    }
+  });
   // Real render is in charge now; drop the prepaint hint so toggling panels
   // (sign in / log out / mode switch) isn't fighting !important rules.
   delete document.documentElement.dataset.prepaint;
