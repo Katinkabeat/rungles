@@ -60,26 +60,26 @@ html, body {
 .app {
   max-width: 480px;
   margin: 0 auto;
-  /* dvh adjusts when iOS Safari's URL bar shows/hides; vh is a fallback. */
-  height: 100vh;
-  height: 100dvh;
+  /* min-height (not fixed height) + no overflow:hidden lets the page scroll
+     naturally when content exceeds the viewport. That's what makes the
+     sticky-bottom action bar work on phones where content is too tall —
+     same pattern Wordy uses. */
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   box-shadow: var(--shadow);
-  /* No app-level scroll; sections manage their own overflow. */
-  overflow: hidden;
 }
-/* Solo mode: ladder is the only scrollable region; everything below it
-   (current, rack, actions) stays pinned at natural size so the action
-   buttons always sit just above the bottom edge. */
+/* Solo mode: let the mode scroll so sticky bottom actions have a scroll
+   ancestor to pin against. */
 .solo-mode {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
-.solo-mode > *:not(.ladder) { flex-shrink: 0; }
 
 /* Header */
 .app-header {
@@ -692,12 +692,18 @@ dialog::backdrop {
   color: var(--ink-soft);
 }
 
-/* Actions */
+/* Actions — sticky pinned to the bottom of the scrolling mode container.
+   Wordy pattern: solid background so scrolled content doesn't bleed
+   through, and safe-area padding so iOS home indicators don't cover it. */
 .actions {
   display: flex;
   gap: 6px;
-  padding: 8px 12px 12px;
+  padding: 8px 12px max(12px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
 }
 
 .btn {
@@ -1008,10 +1014,8 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   /* Fill the leftover space inside .multi-mode so the ladder can claim it. */
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
-/* Ladder is the only scrollable/flexible region — pins match-actions and
-   everything below it to just above the bottom edge. */
-.match-mode > *:not(.match-ladder) { flex-shrink: 0; }
 .match-header {
   display: flex;
   flex-direction: column;
@@ -1080,7 +1084,15 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 .match-current .word-input { margin-bottom: 4px; }
 .match-current .carried-letters { min-height: 0; margin-bottom: 2px; }
 .match-current .carried-label { font-size: 11px; margin-bottom: 2px; }
-.match-actions { display: flex; gap: 4px; }
+.match-actions {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  padding: 4px 0 max(4px, env(safe-area-inset-bottom));
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+}
 
 /* ---------- Icon buttons (Wordy-style: emoji over label, single row) ---------- */
 .actions-icons {
