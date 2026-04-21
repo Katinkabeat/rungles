@@ -13,12 +13,11 @@ const els = {
   authUser:   () => document.querySelector('.auth-username'),
   authLogout: () => document.querySelector('.auth-logout'),
   userBar:    () => document.querySelector('.settings-wrap'),
-  modeToggle: () => document.querySelector('.mode-toggle'),
-  modeSolo:   () => document.querySelector('[data-mode="solo"]'),
-  modeMulti:  () => document.querySelector('[data-mode="multi"]'),
+  landing:    () => document.querySelector('.landing'),
+  playSolo:   () => document.querySelector('.play-solo'),
   soloMode:   () => document.querySelector('.solo-mode'),
+  soloBack:   () => document.querySelector('.solo-mode .menu-back'),
   multiMode:  () => document.querySelector('.multi-mode'),
-  lobby:      () => document.querySelector('.lobby-panel'),
   lobbyList:  () => document.querySelector('.lobby-list'),
   lobbyEmpty: () => document.querySelector('.lobby-empty'),
   lobbyCreate:() => document.querySelector('.lobby-create'),
@@ -30,7 +29,7 @@ const els = {
 const state = {
   session: null,
   profile: null,
-  mode: 'solo',           // last selected mode, restored on sign-in
+  view: 'menu',           // 'menu' | 'solo' | 'multi'. Multi is any in-game state (waiting or active).
   currentGameId: null,    // game we've created/joined while waiting OR playing
   matchActive: false,     // true once status='active' and match view is up
   lobbySub: null,         // realtime channel subscription on rg_games
@@ -73,27 +72,38 @@ function render() {
   els.authGate().classList.toggle('hidden', authed);
   els.userBar().classList.toggle('hidden', !authed);
   document.querySelectorAll('.anon-only').forEach(el => el.classList.toggle('hidden', authed));
-  els.modeToggle().classList.toggle('hidden', !authed);
-  els.soloMode().classList.toggle('hidden', !authed || state.mode !== 'solo');
-  els.multiMode().classList.toggle('hidden', !authed || state.mode !== 'multi');
+
+  els.landing().classList.toggle('hidden', !authed || state.view !== 'menu');
+  els.soloMode().classList.toggle('hidden', !authed || state.view !== 'solo');
+  els.multiMode().classList.toggle('hidden', !authed || state.view !== 'multi');
 
   if (!authed) return;
 
-  els.modeSolo().classList.toggle('active', state.mode === 'solo');
-  els.modeMulti().classList.toggle('active', state.mode === 'multi');
-
-  if (state.mode === 'multi') {
-    const inGame = !!state.currentGameId;
-    els.lobby().classList.toggle('hidden', inGame);
+  if (state.view === 'menu') {
+    refreshLobby();
+  } else if (state.view === 'multi') {
     // Waiting room only when we're in a game but not yet in active play.
-    els.waiting().classList.toggle('hidden', !inGame || state.matchActive);
-    if (!inGame) refreshLobby();
+    els.waiting().classList.toggle('hidden', !state.currentGameId || state.matchActive);
   }
 }
 
-function setMode(mode) {
-  state.mode = mode;
+function setView(view) {
+  state.view = view;
   render();
+}
+
+function goToMenu() {
+  state.currentGameId = null;
+  state.matchActive = false;
+  unsubscribeGame();
+  stopMatch();
+  setView('menu');
+}
+
+function startSolo() {
+  // Solo game auto-deals on page load and preserves state across menu visits.
+  // Play Again (in the endgame modal) is the way to start a fresh hand.
+  setView('solo');
 }
 
 // ---------- auth ----------
@@ -267,6 +277,7 @@ async function handleJoin(gameId) {
 async function enterWaitingRoom(gameId, message) {
   state.currentGameId = gameId;
   state.matchActive = false;
+  state.view = 'multi';
   els.waitingMsg().textContent = message;
   render();
   // If the game is already active (we just joined the second slot), jump straight in.
@@ -280,19 +291,16 @@ async function enterWaitingRoom(gameId, message) {
 }
 
 function leaveWaitingRoom() {
-  state.currentGameId = null;
-  state.matchActive = false;
-  unsubscribeGame();
-  stopMatch();
-  render();
+  goToMenu();
 }
 
 function enterMatch(gameId) {
   unsubscribeGame();
   state.matchActive = true;
+  state.view = 'multi';
   els.waiting().classList.add('hidden');
-  els.lobby().classList.add('hidden');
-  startMatch(gameId, state.session, () => leaveWaitingRoom());
+  startMatch(gameId, state.session, () => goToMenu());
+  render();
 }
 
 // ---------- realtime ----------
@@ -357,9 +365,9 @@ function escapeHtml(str) {
 // ---------- boot ----------
 
 export async function initMultiplayer() {
-  // Wire up mode toggle (works even before auth).
-  els.modeSolo().addEventListener('click', () => setMode('solo'));
-  els.modeMulti().addEventListener('click', () => setMode('multi'));
+  // Wire up menu / back buttons.
+  els.playSolo().addEventListener('click', startSolo);
+  els.soloBack().addEventListener('click', goToMenu);
 
   // Wire up auth form / logout.
   els.authForm().addEventListener('submit', handleSignIn);

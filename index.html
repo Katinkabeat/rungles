@@ -88,12 +88,25 @@
       </form>
     </section>
 
-    <nav class="mode-toggle hidden" aria-label="Game mode">
-      <button class="mode-btn active" type="button" data-mode="solo">Solo</button>
-      <button class="mode-btn" type="button" data-mode="multi">Multiplayer</button>
-    </nav>
+    <div class="landing hidden">
+      <button class="btn-landing play-solo" type="button">
+        <span class="btn-landing-icon">🎯</span>
+        <span class="btn-landing-label">Play Solo</span>
+        <span class="btn-landing-sub">7 rungs, just you</span>
+      </button>
+
+      <section class="landing-multi">
+        <h2 class="multi-h2">Multiplayer</h2>
+        <button class="btn btn-primary lobby-create" type="button">+ Create game</button>
+        <p class="lobby-empty hidden">No open games yet. Create one and someone will join.</p>
+        <div class="lobby-list" aria-live="polite"></div>
+      </section>
+    </div>
 
     <div class="solo-mode hidden">
+    <div class="mode-topbar">
+      <button class="menu-back" type="button" aria-label="Back to menu">← Menu</button>
+    </div>
     <section class="game-info" aria-live="polite">
       <span class="info-rung">Rung 1 / 7</span>
       <span class="info-score">Score: 0</span>
@@ -153,22 +166,15 @@
     </div><!-- /.solo-mode -->
 
     <div class="multi-mode hidden">
-      <section class="lobby-panel">
-        <h2 class="multi-h2">Open games</h2>
-        <button class="btn btn-primary lobby-create" type="button">+ Create game</button>
-        <p class="lobby-empty hidden">No open games yet. Create one and someone will join.</p>
-        <div class="lobby-list" aria-live="polite"></div>
-      </section>
-
       <section class="waiting-room hidden">
         <h2 class="multi-h2">Waiting room</h2>
         <p class="waiting-message">Waiting for opponent…</p>
-        <button class="btn btn-secondary waiting-leave" type="button">Back to lobby</button>
+        <button class="btn btn-secondary waiting-leave" type="button">← Menu</button>
       </section>
 
       <section class="match-mode hidden">
         <div class="match-topbar">
-          <button class="match-back" type="button" aria-label="Back to lobby">← Lobby</button>
+          <button class="match-back" type="button" aria-label="Back to menu">← Menu</button>
           <div class="match-rung-info"></div>
         </div>
         <div class="match-header">
