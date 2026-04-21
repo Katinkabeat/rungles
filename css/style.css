@@ -70,8 +70,16 @@ html, body {
   /* No app-level scroll; sections manage their own overflow. */
   overflow: hidden;
 }
-/* Solo mode handles its own scroll internally if content exceeds viewport. */
-.solo-mode { flex: 1; min-height: 0; overflow-y: auto; }
+/* Solo mode: ladder is the only scrollable region; everything below it
+   (current, rack, actions) stays pinned at natural size so the action
+   buttons always sit just above the bottom edge. */
+.solo-mode {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.solo-mode > *:not(.ladder) { flex-shrink: 0; }
 
 /* Header */
 .app-header {
@@ -1000,11 +1008,10 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   /* Fill the leftover space inside .multi-mode so the ladder can claim it. */
   flex: 1;
   min-height: 0;
-  /* Safety net: if the total content exceeds viewport (e.g. tiny phones,
-     iOS URL bar eating dvh at load), let the user scroll instead of
-     clipping the action buttons below the fold. */
-  overflow-y: auto;
 }
+/* Ladder is the only scrollable/flexible region — pins match-actions and
+   everything below it to just above the bottom edge. */
+.match-mode > *:not(.match-ladder) { flex-shrink: 0; }
 .match-header {
   display: flex;
   flex-direction: column;
