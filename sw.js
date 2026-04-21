@@ -4,7 +4,7 @@
 // page (sw-update.js) listens for that, shows a banner, and lets the user
 // trigger SKIP_WAITING when they're ready to reload into the new version.
 
-const CACHE_VERSION = 'rungles-v5';
+const CACHE_VERSION = 'rungles-v6';
 
 self.addEventListener('install', () => {
   // Intentionally NOT calling skipWaiting() — wait for the page to ask. That

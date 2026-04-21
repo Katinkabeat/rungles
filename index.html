@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
   <title>Rungles</title>
 
   <!-- PWA: installable as an app on iOS / Android home screens -->
@@ -327,12 +327,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=19"></script>
+  <script type="module" src="js/game.js?v=23"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=19';
+    import { initMultiplayer } from './js/multiplayer.js?v=23';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=19"></script>
+  <script src="js/sw-update.js?v=23"></script>
   <script>
     // Dark mode toggle + settings dropdown wiring.
     document.addEventListener('DOMContentLoaded', () => {

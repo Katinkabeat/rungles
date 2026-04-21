@@ -12,6 +12,31 @@ const HINT_COST = 5;
 
 function emptyWord() { return new Array(MAX_WORD_LEN).fill(null); }
 
+// ---------- persistence ----------
+// Autosave the solo game to localStorage so reloads, tab-closes, PWA
+// relaunches, and switching to a multiplayer game don't wipe progress.
+const SAVE_KEY = 'rungles:solo:v1';
+
+function saveState() {
+  try {
+    if (state.gameOver) { localStorage.removeItem(SAVE_KEY); return; }
+    // Drop `selection` (the picked-up tile) so the user isn't stranded mid-drag after a reload.
+    const snapshot = { ...state, selection: null };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot));
+  } catch { /* quota or disabled storage — silently skip */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    if (!saved || saved.gameOver) return false;
+    Object.assign(state, saved, { selection: null });
+    return true;
+  } catch { return false; }
+}
+
 const state = {
   bag: [],
   rack: [],
@@ -372,6 +397,7 @@ function renderAll() {
   renderRack();
   renderLadder();
   renderPreview();
+  saveState();
 }
 
 // ---------- flash feedback ----------
@@ -695,12 +721,18 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDictionary()
     .then(() => {
       console.log(`Dictionary loaded: ${dictionarySize()} words`);
-      newGame();
+      if (loadState()) renderAll(); else newGame();
     })
     .catch(err => {
       console.error('Dictionary load failed', err);
-      newGame(); // still deal something so the UI isn't empty
+      if (loadState()) renderAll(); else newGame();
     });
+
+  // Belt-and-suspenders saves for PWA/mobile backgrounding.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveState();
+  });
+  window.addEventListener('pagehide', saveState);
 
   // Scope solo-mode button bindings to the .solo-mode subtree so they don't
   // collide with .btn-primary / .btn-secondary buttons elsewhere on the page
