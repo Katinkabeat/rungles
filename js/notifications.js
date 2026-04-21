@@ -14,6 +14,7 @@ import { supabase } from './supabase-client.js';
 // It matches Wordy's VITE_VAPID_PUBLIC_KEY since both apps share the Supabase
 // project and therefore share the VAPID keypair.
 const VAPID_PUBLIC_KEY = 'BCIDqV3c-WrF0HXoeZDJMWCDwr8Ho8L0kOrKdok4LB1cjUpiilEYfiASeqM5kIoKU1J03L-UoS7TJfPZw9f40Ck';
+const APP = 'rungles';
 
 // 'unsupported' | 'granted' | 'denied' | 'default'
 export function getPushPermissionState() {
@@ -54,7 +55,7 @@ export async function unsubscribeFromPush(userId) {
     const sw = await navigator.serviceWorker.ready;
     const sub = await sw.pushManager.getSubscription();
     if (sub) await sub.unsubscribe();
-    if (userId) await supabase.from('push_subscriptions').delete().eq('user_id', userId);
+    if (userId) await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('app', APP);
     return true;
   } catch (err) {
     console.error('rg unsubscribeFromPush failed:', err);
@@ -81,11 +82,12 @@ async function saveSubscription(userId, subscription) {
   const json = subscription.toJSON();
   const { error } = await supabase.from('push_subscriptions').upsert({
     user_id: userId,
+    app: APP,
     endpoint: json.endpoint,
     keys_p256dh: json.keys.p256dh,
     keys_auth: json.keys.auth,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' });
+  }, { onConflict: 'user_id,app' });
   if (error) {
     console.error('rg saveSubscription failed:', error);
     return false;

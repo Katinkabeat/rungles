@@ -31,6 +31,7 @@ async function sendPushToUser(
     .from('push_subscriptions')
     .select('endpoint, keys_p256dh, keys_auth')
     .eq('user_id', userId)
+    .eq('app', 'rungles')
     .single()
 
   if (subErr || !sub) return { sent: false, reason: 'no push subscription' }
@@ -46,7 +47,7 @@ async function sendPushToUser(
   } catch (pushErr: any) {
     if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
       // Expired — clean up so we don't keep trying.
-      await supabase.from('push_subscriptions').delete().eq('user_id', userId)
+      await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('app', 'rungles')
       return { sent: false, reason: 'expired subscription removed' }
     }
     throw pushErr
