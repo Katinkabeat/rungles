@@ -328,6 +328,41 @@ html.dark .tile-in-word-carried .tile-value { color: #a1a1aa !important; }
   background: #fff8e8;
 }
 
+/* "Picked up" tile — user has tapped to select it, next tap places it. */
+.tile.tile-selected {
+  outline: 3px solid var(--accent-strong);
+  outline-offset: 2px;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(169, 116, 204, 0.35);
+}
+html.dark .tile.tile-selected {
+  outline-color: var(--accent);
+  box-shadow: 0 6px 14px rgba(124, 58, 237, 0.5);
+}
+
+/* Tap-here slot at the end of the word for placing at the tail. */
+.append-zone {
+  flex: 0 0 auto;
+  min-width: 28px;
+  height: 52px;
+  border: 2px dashed transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--accent-strong);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 6px;
+}
+.append-zone:empty { min-width: 12px; }
+.word-input:has(.tile-selected) .append-zone,
+.append-zone:not(:empty) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.word-input.word-long .append-zone,
+.word-input.word-xlong .append-zone { height: 44px; }
+
 .status-banner {
   min-height: 22px;
   padding: 4px 16px;

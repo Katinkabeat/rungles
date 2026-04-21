@@ -18,6 +18,7 @@ const state = {
   prevWord: null,           // string of letters from previous rung
   carried: [],              // [{ letter, used: boolean }] — letters available from prev word
   selected: [],             // [{ source: 'rack'|'carried', idx, letter }] — current word builder
+  selection: null,          // { source: 'rack'|'carried'|'word', idx } — tile the user has picked up
   premiumPos: null,         // 1-based or null
   gameOver: false,
 };
@@ -102,10 +103,10 @@ function renderCarried() {
     const tile = makeTile(c.letter, { ghost: used, small: true });
     tile.classList.add('tile-carried');
     tile.dataset.carriedIndex = String(idx);
+    if (selectionMatches('carried', idx)) tile.classList.add('tile-selected');
     tile.addEventListener('click', () => {
       if (used) return;
-      state.selected.push({ source: 'carried', idx, letter: c.letter });
-      renderAll();
+      handleTileTap('carried', idx);
     });
     row.append(tile);
   });
@@ -122,19 +123,22 @@ function renderWordInput() {
   if (state.selected.length === 0 && !state.premiumPos) {
     const ph = document.createElement('span');
     ph.className = 'word-placeholder';
-    ph.textContent = 'Tap tiles to build a word';
+    ph.textContent = state.selection
+      ? 'Tap here to place at the end'
+      : 'Tap tiles to build a word';
     input.append(ph);
+    // Whole empty input acts as append-zone when something's selected.
+    input.onclick = (e) => { if (e.target === input || e.target === ph) handleAppendZoneTap(); };
     return;
   }
+  input.onclick = null;
   state.selected.forEach((entry, pos) => {
     const isPremium = (pos + 1) === state.premiumPos && entry.source === 'rack';
     const tile = makeTile(entry.letter, { premium: isPremium });
     tile.classList.add('tile-in-word');
     if (entry.source === 'carried') tile.classList.add('tile-in-word-carried');
-    tile.addEventListener('click', () => {
-      state.selected.splice(pos, 1);
-      renderAll();
-    });
+    if (selectionMatches('word', pos)) tile.classList.add('tile-selected');
+    tile.addEventListener('click', () => { handleTileTap('word', pos); });
     input.append(tile);
   });
   // If the premium slot hasn't been reached yet, preview empty slots up to and including it.
@@ -148,6 +152,14 @@ function renderWordInput() {
       input.append(slot);
     }
   }
+  // Trailing append-zone so the user can place at the very end of the word.
+  const appendZone = document.createElement('button');
+  appendZone.type = 'button';
+  appendZone.className = 'append-zone';
+  appendZone.setAttribute('aria-label', 'Place at end');
+  appendZone.textContent = state.selection ? '+' : '';
+  appendZone.addEventListener('click', handleAppendZoneTap);
+  input.append(appendZone);
 }
 
 // Count letters shared between two words as a multiset intersection.
@@ -171,19 +183,157 @@ function renderRack() {
     const inWord = selectedRackIdxs.has(idx);
     const tile = makeTile(letter, { ghost: inWord });
     tile.dataset.rackIndex = String(idx);
-    tile.addEventListener('click', async () => {
+    if (selectionMatches('rack', idx)) tile.classList.add('tile-selected');
+    tile.addEventListener('click', () => {
       if (inWord) return;
-      let resolvedLetter = letter;
-      if (letter === '_') {
-        const picked = await pickBlankLetter();
-        if (!picked) return;
-        resolvedLetter = picked;
-      }
-      state.selected.push({ source: 'rack', idx, letter: resolvedLetter });
-      renderAll();
+      handleTileTap('rack', idx);
     });
     container.append(tile);
   });
+}
+
+// ---------- tile interaction (tap-to-select, tap-to-place) ----------
+
+function selectionMatches(source, idx) {
+  return state.selection
+    && state.selection.source === source
+    && state.selection.idx === idx;
+}
+
+function clearSelection() { state.selection = null; }
+
+function handleTileTap(targetSource, targetIdx) {
+  // No selection yet: tapping any tile picks it up.
+  if (!state.selection) {
+    state.selection = { source: targetSource, idx: targetIdx };
+    renderAll();
+    return;
+  }
+
+  // Same tile tapped again: deselect.
+  if (selectionMatches(targetSource, targetIdx)) {
+    clearSelection();
+    renderAll();
+    return;
+  }
+
+  const sel = state.selection;
+
+  // Placement into the word (either insert or move).
+  if (targetSource === 'word') {
+    if (sel.source === 'rack') {
+      placeRackIntoWord(sel.idx, targetIdx);
+    } else if (sel.source === 'carried') {
+      insertCarriedIntoWord(sel.idx, targetIdx);
+      clearSelection();
+      renderAll();
+    } else if (sel.source === 'word') {
+      moveWordTile(sel.idx, targetIdx);
+      clearSelection();
+      renderAll();
+    }
+    return;
+  }
+
+  // Target is a rack tile.
+  if (targetSource === 'rack') {
+    if (sel.source === 'rack') {
+      reorderRack(sel.idx, targetIdx);
+      clearSelection();
+      renderAll();
+      return;
+    }
+    if (sel.source === 'word') {
+      // Remove from word (no rack move — rack stays as-is). Reorder rack
+      // separately if you want.
+      state.selected.splice(sel.idx, 1);
+      clearSelection();
+      renderAll();
+      return;
+    }
+    // carried -> rack: switch selection (carried can't be placed in rack).
+    state.selection = { source: 'rack', idx: targetIdx };
+    renderAll();
+    return;
+  }
+
+  // Target is a carried tile — only valid "placement" is switching selection.
+  if (targetSource === 'carried') {
+    if (sel.source === 'word') {
+      state.selected.splice(sel.idx, 1);
+      clearSelection();
+    } else {
+      state.selection = { source: 'carried', idx: targetIdx };
+    }
+    renderAll();
+    return;
+  }
+}
+
+function handleAppendZoneTap() {
+  if (!state.selection) return;
+  const sel = state.selection;
+  const endPos = state.selected.length;
+  if (sel.source === 'rack') {
+    placeRackIntoWord(sel.idx, endPos);
+    return;
+  }
+  if (sel.source === 'carried') {
+    insertCarriedIntoWord(sel.idx, endPos);
+  } else if (sel.source === 'word') {
+    moveWordTile(sel.idx, endPos);
+  }
+  clearSelection();
+  renderAll();
+}
+
+// Synchronous for normal tiles; async only when a blank needs a letter picked.
+function placeRackIntoWord(rackIdx, pos) {
+  const letter = state.rack[rackIdx];
+  if (letter === '_') {
+    pickBlankLetter().then(picked => {
+      if (!picked) return;
+      state.selected.splice(pos, 0, { source: 'rack', idx: rackIdx, letter: picked });
+      clearSelection();
+      renderAll();
+    });
+    return;
+  }
+  state.selected.splice(pos, 0, { source: 'rack', idx: rackIdx, letter });
+  clearSelection();
+  renderAll();
+}
+
+function insertCarriedIntoWord(carriedIdx, pos) {
+  const entry = state.carried[carriedIdx];
+  state.selected.splice(pos, 0, { source: 'carried', idx: carriedIdx, letter: entry.letter });
+}
+
+function moveWordTile(fromPos, toPos) {
+  if (fromPos === toPos) return;
+  const [entry] = state.selected.splice(fromPos, 1);
+  const insertAt = fromPos < toPos ? toPos - 1 : toPos;
+  state.selected.splice(insertAt, 0, entry);
+}
+
+function reorderRack(fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  const newRack = [...state.rack];
+  const [letter] = newRack.splice(fromIdx, 1);
+  const insertAt = fromIdx < toIdx ? toIdx - 1 : toIdx;
+  newRack.splice(insertAt, 0, letter);
+
+  // Build oldIdx -> newIdx map so state.selected rack references stay valid.
+  const oldInNew = [];
+  for (let i = 0; i < state.rack.length; i++) if (i !== fromIdx) oldInNew.push(i);
+  oldInNew.splice(insertAt, 0, fromIdx);
+  const remap = {};
+  oldInNew.forEach((oldIdx, newIdx) => { remap[oldIdx] = newIdx; });
+
+  state.rack = newRack;
+  state.selected = state.selected.map(s =>
+    s.source === 'rack' ? { ...s, idx: remap[s.idx] } : s
+  );
 }
 
 function pickBlankLetter() {
@@ -354,6 +504,7 @@ function handleSubmit() {
   state.prevWord = word;
   state.rungNumber += 1;
   state.selected = [];
+  state.selection = null;
 
   if (state.rungNumber > TOTAL_RUNGS) {
     endGame();
@@ -468,8 +619,9 @@ function handleGiveUp() {
 }
 
 function handleClear() {
-  if (state.selected.length === 0) return;
+  if (state.selected.length === 0 && !state.selection) return;
   state.selected = [];
+  clearSelection();
   renderAll();
 }
 
@@ -516,6 +668,12 @@ function handleKeydown(e) {
     return;
   }
   if (e.key === 'Escape') {
+    if (state.selection) {
+      e.preventDefault();
+      clearSelection();
+      renderAll();
+      return;
+    }
     if (state.selected.length > 0) {
       e.preventDefault();
       handleClear();
@@ -573,6 +731,7 @@ function newGame() {
   state.prevWord = null;
   state.carried = [];
   state.selected = [];
+  state.selection = null;
   state.premiumPos = pickPremiumPos();
   state.gameOver = false;
   clearBanner();

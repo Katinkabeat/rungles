@@ -48,6 +48,7 @@ function resetState(gameId, mySession) {
     rack: [],                      // my tiles
     rungs: [],                     // all rg_rungs rows, sorted by rung_number asc
     selected: [],                  // [{ source: 'rack'|'carried', idx, letter }]
+    selection: null,               // { source: 'rack'|'carried'|'word', idx } — picked-up tile
     premiumPos: null,              // for next rung (server-derived)
     submitting: false,
   };
@@ -275,24 +276,41 @@ function renderCurrent() {
   const totalSlots = Math.max(state.selected.length, state.premiumPos || 0);
   input.classList.toggle('word-long', totalSlots >= 7);
   input.classList.toggle('word-xlong', totalSlots >= 10);
+  input.onclick = null;
   if (state.selected.length === 0) {
     const ph = document.createElement('span');
     ph.className = 'word-placeholder';
-    ph.textContent = isMyTurn() ? 'Tap tiles to build a word' : 'Waiting for opponent...';
+    ph.textContent = isMyTurn()
+      ? (state.selection ? 'Tap here to place at the end' : 'Tap tiles to build a word')
+      : 'Waiting for opponent...';
     input.append(ph);
+    if (isMyTurn() && !state.submitting) {
+      input.onclick = (e) => { if (e.target === input || e.target === ph) handleAppendZoneTap(); };
+    }
   } else {
     state.selected.forEach((entry, pos) => {
       const isPremium = (pos + 1) === state.premiumPos && entry.source === 'rack';
       const tile = makeTile(entry.letter, { premium: isPremium });
       tile.classList.add('tile-in-word');
       if (entry.source === 'carried') tile.classList.add('tile-in-word-carried');
+      if (selectionMatches('word', pos)) tile.classList.add('tile-selected');
       tile.addEventListener('click', () => {
         if (!isMyTurn() || state.submitting) return;
-        state.selected.splice(pos, 1);
-        render();
+        handleTileTap('word', pos);
       });
       input.append(tile);
     });
+    // Trailing append-zone for placing at the very end.
+    const appendZone = document.createElement('button');
+    appendZone.type = 'button';
+    appendZone.className = 'append-zone';
+    appendZone.setAttribute('aria-label', 'Place at end');
+    appendZone.textContent = state.selection ? '+' : '';
+    appendZone.addEventListener('click', () => {
+      if (!isMyTurn() || state.submitting) return;
+      handleAppendZoneTap();
+    });
+    input.append(appendZone);
   }
 
   // Carried letters
@@ -319,10 +337,10 @@ function renderCurrent() {
       const used = usedIdxs.has(idx);
       const tile = makeTile(letter, { ghost: used, small: true });
       tile.classList.add('tile-carried');
+      if (selectionMatches('carried', idx)) tile.classList.add('tile-selected');
       tile.addEventListener('click', () => {
         if (used || !isMyTurn() || state.submitting) return;
-        state.selected.push({ source: 'carried', idx, letter });
-        render();
+        handleTileTap('carried', idx);
       });
       row.append(tile);
     });
@@ -348,18 +366,141 @@ function renderRack() {
     const letter = state.rack[serverIdx];
     const inWord = usedIdxs.has(serverIdx);
     const tile = makeTile(letter, { ghost: inWord });
-    tile.addEventListener('click', async () => {
+    if (selectionMatches('rack', serverIdx)) tile.classList.add('tile-selected');
+    tile.addEventListener('click', () => {
       if (inWord || !isMyTurn() || state.submitting) return;
-      let resolved = letter;
-      if (letter === '_') {
-        resolved = await pickBlankLetter();
-        if (!resolved) return;
-      }
-      state.selected.push({ source: 'rack', idx: serverIdx, letter: resolved });
-      render();
+      handleTileTap('rack', serverIdx);
     });
     container.append(tile);
   });
+}
+
+// ---------- tile interaction (tap-to-select, tap-to-place) ----------
+
+function selectionMatches(source, idx) {
+  return state.selection
+    && state.selection.source === source
+    && state.selection.idx === idx;
+}
+
+function clearSelection() { state.selection = null; }
+
+function handleTileTap(targetSource, targetIdx) {
+  if (!state.selection) {
+    state.selection = { source: targetSource, idx: targetIdx };
+    render();
+    return;
+  }
+  if (selectionMatches(targetSource, targetIdx)) {
+    clearSelection();
+    render();
+    return;
+  }
+
+  const sel = state.selection;
+
+  if (targetSource === 'word') {
+    if (sel.source === 'rack') {
+      placeRackIntoWord(sel.idx, targetIdx);
+    } else if (sel.source === 'carried') {
+      insertCarriedIntoWord(sel.idx, targetIdx);
+      clearSelection();
+      render();
+    } else if (sel.source === 'word') {
+      moveWordTile(sel.idx, targetIdx);
+      clearSelection();
+      render();
+    }
+    return;
+  }
+
+  if (targetSource === 'rack') {
+    if (sel.source === 'rack') {
+      reorderRack(sel.idx, targetIdx);
+      clearSelection();
+      render();
+      return;
+    }
+    if (sel.source === 'word') {
+      state.selected.splice(sel.idx, 1);
+      clearSelection();
+      render();
+      return;
+    }
+    state.selection = { source: 'rack', idx: targetIdx };
+    render();
+    return;
+  }
+
+  if (targetSource === 'carried') {
+    if (sel.source === 'word') {
+      state.selected.splice(sel.idx, 1);
+      clearSelection();
+    } else {
+      state.selection = { source: 'carried', idx: targetIdx };
+    }
+    render();
+    return;
+  }
+}
+
+function handleAppendZoneTap() {
+  if (!state.selection) return;
+  const sel = state.selection;
+  const endPos = state.selected.length;
+  if (sel.source === 'rack') {
+    placeRackIntoWord(sel.idx, endPos);
+    return;
+  }
+  if (sel.source === 'carried') {
+    insertCarriedIntoWord(sel.idx, endPos);
+  } else if (sel.source === 'word') {
+    moveWordTile(sel.idx, endPos);
+  }
+  clearSelection();
+  render();
+}
+
+function placeRackIntoWord(serverIdx, pos) {
+  const letter = state.rack[serverIdx];
+  if (letter === '_') {
+    pickBlankLetter().then(resolved => {
+      if (!resolved) return;
+      state.selected.splice(pos, 0, { source: 'rack', idx: serverIdx, letter: resolved });
+      clearSelection();
+      render();
+    });
+    return;
+  }
+  state.selected.splice(pos, 0, { source: 'rack', idx: serverIdx, letter });
+  clearSelection();
+  render();
+}
+
+function insertCarriedIntoWord(carriedIdx, pos) {
+  const letter = carriedLetters()[carriedIdx];
+  state.selected.splice(pos, 0, { source: 'carried', idx: carriedIdx, letter });
+}
+
+function moveWordTile(fromPos, toPos) {
+  if (fromPos === toPos) return;
+  const [entry] = state.selected.splice(fromPos, 1);
+  const insertAt = fromPos < toPos ? toPos - 1 : toPos;
+  state.selected.splice(insertAt, 0, entry);
+}
+
+// Reorder is purely visual: permute state.rackOrder, not state.rack.
+// state.selected idx references stay valid because they point at serverIdx.
+function reorderRack(fromServerIdx, toServerIdx) {
+  const order = rackDisplayOrder();
+  const fromDisplayPos = order.indexOf(fromServerIdx);
+  const toDisplayPos = order.indexOf(toServerIdx);
+  if (fromDisplayPos === -1 || toDisplayPos === -1 || fromDisplayPos === toDisplayPos) return;
+  const newOrder = [...order];
+  const [moved] = newOrder.splice(fromDisplayPos, 1);
+  const insertAt = fromDisplayPos < toDisplayPos ? toDisplayPos - 1 : toDisplayPos;
+  newOrder.splice(insertAt, 0, moved);
+  state.rackOrder = newOrder;
 }
 
 function pickBlankLetter() {
@@ -446,13 +587,15 @@ async function handleSubmit() {
   // Server accepted. Clear selection; realtime subscriptions will refresh
   // ladder, rack, scores, and turn.
   state.selected = [];
+  state.selection = null;
   renderStatus(`✓ ${word} +${data}`, 'ok');
   render();
 }
 
 function handleClear() {
-  if (state.selected.length === 0) return;
+  if (state.selected.length === 0 && !state.selection) return;
   state.selected = [];
+  state.selection = null;
   render();
 }
 
@@ -485,6 +628,7 @@ async function handleSkip() {
     return;
   }
   state.selected = [];
+  state.selection = null;
   renderStatus('Turn skipped.', 'ok');
   render();
 }
