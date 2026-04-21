@@ -248,9 +248,14 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 }
 .carried-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
+  justify-content: center;
+}
+.carried-row .tile-small {
+  flex: 0 1 30px;
+  min-width: 0;
 }
 
 .tile-small {
