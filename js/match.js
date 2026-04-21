@@ -6,7 +6,10 @@ import { LETTER_VALUES } from './tiles.js';
 import { scoreRung } from './scoring.js';
 
 const MIN_WORD_LEN = 4;
+const MAX_WORD_LEN = 7;
 const CARRY_REQUIRED = 3;
+
+function emptyWord() { return new Array(MAX_WORD_LEN).fill(null); }
 
 const els = {
   view:        () => document.querySelector('.match-mode'),
@@ -47,8 +50,8 @@ function resetState(gameId, mySession) {
     game: null,                    // last rg_games row
     rack: [],                      // my tiles
     rungs: [],                     // all rg_rungs rows, sorted by rung_number asc
-    selected: [],                  // [{ source: 'rack'|'carried', idx, letter }]
-    selection: null,               // { source: 'rack'|'carried'|'word', idx } — picked-up tile
+    selected: emptyWord(),         // length-MAX_WORD_LEN sparse; each slot null or { source, idx, letter }
+    selection: null,               // { source: 'rack'|'carried', idx } — picked-up tile from rack/carried
     premiumPos: null,              // for next rung (server-derived)
     submitting: false,
   };
@@ -69,13 +72,12 @@ function carriedLetters() {
   return state.rungs[state.rungs.length - 1].word.split('');
 }
 
-function currentWord() {
-  return state.selected.map(s => s.letter).join('');
-}
-
-function carriedUsedCount() {
-  return state.selected.filter(s => s.source === 'carried').length;
-}
+function currentWordLetters() { return state.selected.filter(Boolean); }
+function currentWord()        { return currentWordLetters().map(s => s.letter).join(''); }
+function carriedUsedCount()   { return state.selected.filter(e => e && e.source === 'carried').length; }
+function filledSlotCount()    { return state.selected.filter(Boolean).length; }
+function lastFilledSlot()     { for (let i = MAX_WORD_LEN - 1; i >= 0; i--) if (state.selected[i]) return i; return -1; }
+function hasGap()             { const last = lastFilledSlot(); return last >= 0 && last + 1 !== filledSlotCount(); }
 
 function nextRungNumber() {
   return state.rungs.length + 1;
@@ -199,7 +201,7 @@ function openMatchHistoryModal() {
 function renderPreview() {
   const el = els.preview();
   if (!el) return;
-  if (!state.selected || state.selected.length === 0) {
+  if (filledSlotCount() === 0) {
     el.textContent = '';
     el.classList.remove('score-preview-active');
     return;
@@ -268,49 +270,36 @@ function renderCurrent() {
   // Premium label
   els.premium().textContent = state.premiumPos ? `2× slot: position ${state.premiumPos}` : '2× slot: —';
 
-  // Word input
+  // Word input: 7 fixed slots, empty or filled.
   const input = els.wordInput();
   input.innerHTML = '';
-  // Shrink tiles when the row is long so it stays on one line on phone
-  // widths (matches solo behaviour; fixes iOS Safari overflow in multi).
-  const totalSlots = Math.max(state.selected.length, state.premiumPos || 0);
-  input.classList.toggle('word-long', totalSlots >= 7);
-  input.classList.toggle('word-xlong', totalSlots >= 10);
+  input.classList.add('word-slots');
   input.onclick = null;
-  if (state.selected.length === 0) {
-    const ph = document.createElement('span');
-    ph.className = 'word-placeholder';
-    ph.textContent = isMyTurn()
-      ? (state.selection ? 'Tap here to place at the end' : 'Tap tiles to build a word')
-      : 'Waiting for opponent...';
-    input.append(ph);
-    if (isMyTurn() && !state.submitting) {
-      input.onclick = (e) => { if (e.target === input || e.target === ph) handleAppendZoneTap(); };
-    }
-  } else {
-    state.selected.forEach((entry, pos) => {
-      const isPremium = (pos + 1) === state.premiumPos && entry.source === 'rack';
-      const tile = makeTile(entry.letter, { premium: isPremium });
+  for (let slot = 0; slot < MAX_WORD_LEN; slot++) {
+    const entry = state.selected[slot];
+    const isPremium = (slot + 1) === state.premiumPos;
+    if (entry) {
+      const isPremiumHit = isPremium && entry.source === 'rack';
+      const tile = makeTile(entry.letter, { premium: isPremiumHit });
       tile.classList.add('tile-in-word');
       if (entry.source === 'carried') tile.classList.add('tile-in-word-carried');
-      if (selectionMatches('word', pos)) tile.classList.add('tile-selected');
       tile.addEventListener('click', () => {
         if (!isMyTurn() || state.submitting) return;
-        handleTileTap('word', pos);
+        handleWordSlotTap(slot);
       });
       input.append(tile);
-    });
-    // Trailing append-zone for placing at the very end.
-    const appendZone = document.createElement('button');
-    appendZone.type = 'button';
-    appendZone.className = 'append-zone';
-    appendZone.setAttribute('aria-label', 'Place at end');
-    appendZone.textContent = state.selection ? '+' : '';
-    appendZone.addEventListener('click', () => {
-      if (!isMyTurn() || state.submitting) return;
-      handleAppendZoneTap();
-    });
-    input.append(appendZone);
+    } else {
+      const empty = document.createElement('button');
+      empty.type = 'button';
+      empty.className = 'empty-slot' + (isPremium ? ' empty-slot-premium' : '');
+      empty.textContent = isPremium ? '2×' : '';
+      empty.setAttribute('aria-label', `Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`);
+      empty.addEventListener('click', () => {
+        if (!isMyTurn() || state.submitting) return;
+        handleWordSlotTap(slot);
+      });
+      input.append(empty);
+    }
   }
 
   // Carried letters
@@ -332,7 +321,7 @@ function renderCurrent() {
     carriedC.append(lbl);
     const row = document.createElement('div');
     row.className = 'carried-row';
-    const usedIdxs = new Set(state.selected.filter(s => s.source === 'carried').map(s => s.idx));
+    const usedIdxs = new Set(state.selected.filter(e => e && e.source === 'carried').map(e => e.idx));
     carried.forEach((letter, idx) => {
       const used = usedIdxs.has(idx);
       const tile = makeTile(letter, { ghost: used, small: true });
@@ -340,7 +329,7 @@ function renderCurrent() {
       if (selectionMatches('carried', idx)) tile.classList.add('tile-selected');
       tile.addEventListener('click', () => {
         if (used || !isMyTurn() || state.submitting) return;
-        handleTileTap('carried', idx);
+        handleSourceTap('carried', idx);
       });
       row.append(tile);
     });
@@ -361,7 +350,7 @@ function rackDisplayOrder() {
 function renderRack() {
   const container = els.rack();
   container.innerHTML = '';
-  const usedIdxs = new Set(state.selected.filter(s => s.source === 'rack').map(s => s.idx));
+  const usedIdxs = new Set(state.selected.filter(e => e && e.source === 'rack').map(e => e.idx));
   rackDisplayOrder().forEach(serverIdx => {
     const letter = state.rack[serverIdx];
     const inWord = usedIdxs.has(serverIdx);
@@ -369,7 +358,7 @@ function renderRack() {
     if (selectionMatches('rack', serverIdx)) tile.classList.add('tile-selected');
     tile.addEventListener('click', () => {
       if (inWord || !isMyTurn() || state.submitting) return;
-      handleTileTap('rack', serverIdx);
+      handleSourceTap('rack', serverIdx);
     });
     container.append(tile);
   });
@@ -385,108 +374,56 @@ function selectionMatches(source, idx) {
 
 function clearSelection() { state.selection = null; }
 
-function handleTileTap(targetSource, targetIdx) {
+function handleSourceTap(source, idx) {
   if (!state.selection) {
-    state.selection = { source: targetSource, idx: targetIdx };
+    state.selection = { source, idx };
     render();
     return;
   }
-  if (selectionMatches(targetSource, targetIdx)) {
+  if (selectionMatches(source, idx)) {
     clearSelection();
     render();
     return;
   }
-
   const sel = state.selection;
-
-  if (targetSource === 'word') {
-    if (sel.source === 'rack') {
-      placeRackIntoWord(sel.idx, targetIdx);
-    } else if (sel.source === 'carried') {
-      insertCarriedIntoWord(sel.idx, targetIdx);
-      clearSelection();
-      render();
-    } else if (sel.source === 'word') {
-      moveWordTile(sel.idx, targetIdx);
-      clearSelection();
-      render();
-    }
-    return;
-  }
-
-  if (targetSource === 'rack') {
-    if (sel.source === 'rack') {
-      reorderRack(sel.idx, targetIdx);
-      clearSelection();
-      render();
-      return;
-    }
-    if (sel.source === 'word') {
-      state.selected.splice(sel.idx, 1);
-      clearSelection();
-      render();
-      return;
-    }
-    state.selection = { source: 'rack', idx: targetIdx };
+  if (sel.source === 'rack' && source === 'rack') {
+    reorderRack(sel.idx, idx);
+    clearSelection();
     render();
     return;
   }
-
-  if (targetSource === 'carried') {
-    if (sel.source === 'word') {
-      state.selected.splice(sel.idx, 1);
-      clearSelection();
-    } else {
-      state.selection = { source: 'carried', idx: targetIdx };
-    }
-    render();
-    return;
-  }
+  state.selection = { source, idx };
+  render();
 }
 
-function handleAppendZoneTap() {
-  if (!state.selection) return;
+function handleWordSlotTap(slot) {
+  const entry = state.selected[slot];
+  if (!state.selection) {
+    if (entry) {
+      state.selected[slot] = null;
+      render();
+    }
+    return;
+  }
   const sel = state.selection;
-  const endPos = state.selected.length;
   if (sel.source === 'rack') {
-    placeRackIntoWord(sel.idx, endPos);
-    return;
-  }
-  if (sel.source === 'carried') {
-    insertCarriedIntoWord(sel.idx, endPos);
-  } else if (sel.source === 'word') {
-    moveWordTile(sel.idx, endPos);
+    const letter = state.rack[sel.idx];
+    if (letter === '_') {
+      pickBlankLetter().then(picked => {
+        if (!picked) return;
+        state.selected[slot] = { source: 'rack', idx: sel.idx, letter: picked };
+        clearSelection();
+        render();
+      });
+      return;
+    }
+    state.selected[slot] = { source: 'rack', idx: sel.idx, letter };
+  } else if (sel.source === 'carried') {
+    const letter = carriedLetters()[sel.idx];
+    state.selected[slot] = { source: 'carried', idx: sel.idx, letter };
   }
   clearSelection();
   render();
-}
-
-function placeRackIntoWord(serverIdx, pos) {
-  const letter = state.rack[serverIdx];
-  if (letter === '_') {
-    pickBlankLetter().then(resolved => {
-      if (!resolved) return;
-      state.selected.splice(pos, 0, { source: 'rack', idx: serverIdx, letter: resolved });
-      clearSelection();
-      render();
-    });
-    return;
-  }
-  state.selected.splice(pos, 0, { source: 'rack', idx: serverIdx, letter });
-  clearSelection();
-  render();
-}
-
-function insertCarriedIntoWord(carriedIdx, pos) {
-  const letter = carriedLetters()[carriedIdx];
-  state.selected.splice(pos, 0, { source: 'carried', idx: carriedIdx, letter });
-}
-
-function moveWordTile(fromPos, toPos) {
-  if (fromPos === toPos) return;
-  const [entry] = state.selected.splice(fromPos, 1);
-  const insertAt = fromPos < toPos ? toPos - 1 : toPos;
-  state.selected.splice(insertAt, 0, entry);
 }
 
 // Reorder is purely visual: permute state.rackOrder, not state.rack.
@@ -534,7 +471,7 @@ function renderActions() {
   const active = state.game?.status === 'active';
   const playable = isMyTurn() && active && !state.submitting;
   els.submitBtn().disabled = !playable;
-  els.clearBtn().disabled = !playable || state.selected.length === 0;
+  els.clearBtn().disabled = !playable || filledSlotCount() === 0;
   els.skipBtn().disabled = !playable;
   // Give Up only enabled while the game is live (either turn).
   els.giveUpBtn().disabled = !active || state.submitting;
@@ -553,6 +490,10 @@ function renderStatus(msg, kind) {
 
 async function handleSubmit() {
   if (!isMyTurn() || state.submitting) return;
+  if (hasGap()) {
+    renderStatus('Fill the empty slot(s) before submitting.', 'bad');
+    return;
+  }
   const word = currentWord();
   if (word.length < MIN_WORD_LEN) {
     renderStatus(`Too short. Minimum ${MIN_WORD_LEN} letters.`, 'bad');
@@ -564,7 +505,7 @@ async function handleSubmit() {
   }
 
   // Build word_sources: 0 for carried, 1-based rack index otherwise.
-  const sources = state.selected.map(s => s.source === 'carried' ? 0 : (s.idx + 1));
+  const sources = currentWordLetters().map(s => s.source === 'carried' ? 0 : (s.idx + 1));
 
   state.submitting = true;
   renderActions();
@@ -586,15 +527,15 @@ async function handleSubmit() {
 
   // Server accepted. Clear selection; realtime subscriptions will refresh
   // ladder, rack, scores, and turn.
-  state.selected = [];
+  state.selected = emptyWord();
   state.selection = null;
   renderStatus(`✓ ${word} +${data}`, 'ok');
   render();
 }
 
 function handleClear() {
-  if (state.selected.length === 0 && !state.selection) return;
-  state.selected = [];
+  if (filledSlotCount() === 0 && !state.selection) return;
+  state.selected = emptyWord();
   state.selection = null;
   render();
 }
@@ -603,7 +544,7 @@ function handleClear() {
 // tiles keep their slot so the word-builder positions stay stable.
 function handleShuffle() {
   const order = [...rackDisplayOrder()];
-  const selectedIdxs = new Set(state.selected.filter(s => s.source === 'rack').map(s => s.idx));
+  const selectedIdxs = new Set(state.selected.filter(e => e && e.source === 'rack').map(e => e.idx));
   const freePositions = order.map((_, p) => p).filter(p => !selectedIdxs.has(order[p]));
   const freeValues = freePositions.map(p => order[p]);
   for (let i = freeValues.length - 1; i > 0; i--) {
@@ -627,7 +568,7 @@ async function handleSkip() {
     renderActions();
     return;
   }
-  state.selected = [];
+  state.selected = emptyWord();
   state.selection = null;
   renderStatus('Turn skipped.', 'ok');
   render();

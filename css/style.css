@@ -190,50 +190,30 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
   margin-bottom: 8px;
 }
 
+/* Word area is always 7 fixed slots — empty or filled. Fits on phone widths
+   without wrapping. */
 .word-input {
-  min-height: 62px;
+  min-height: 52px;
   background: var(--surface);
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   padding: 6px;
   margin-bottom: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
-
-/* Auto-shrink tiles + slots when the word row is long, so it stays on one
-   line on phone widths. flex-shrink + min-width:0 lets tiles compress past
-   their stated width if needed (e.g. 12-letter words on a 320px screen). */
-.word-input.word-long { gap: 3px; flex-wrap: nowrap; }
-.word-input.word-long .tile,
-.word-input.word-long .empty-slot {
-  flex: 0 1 36px;
+.word-input .tile,
+.word-input .empty-slot {
+  flex: 0 1 40px;
   min-width: 0;
-  width: 36px;
-  height: 44px;
-  font-size: 1.1rem;
+  width: 40px;
+  height: 48px;
+  font-size: 1.15rem;
 }
-.word-input.word-long .tile-value { font-size: 0.55rem; bottom: 2px; right: 3px; }
-
-.word-input.word-xlong { gap: 2px; }
-.word-input.word-xlong .tile,
-.word-input.word-xlong .empty-slot {
-  flex: 0 1 30px;
-  min-width: 0;
-  width: 30px;
-  height: 38px;
-  font-size: 0.95rem;
-}
-.word-input.word-xlong .tile-value { font-size: 0.5rem; }
-
-.word-placeholder {
-  color: var(--ink-soft);
-  font-style: italic;
-  font-size: 0.9rem;
-}
+.word-input .tile-value { font-size: 0.6rem; bottom: 2px; right: 3px; }
 
 .hint-btn {
   display: inline-flex;
@@ -340,28 +320,9 @@ html.dark .tile.tile-selected {
   box-shadow: 0 6px 14px rgba(124, 58, 237, 0.5);
 }
 
-/* Tap-here slot at the end of the word for placing at the tail. */
-.append-zone {
-  flex: 0 0 auto;
-  min-width: 28px;
-  height: 52px;
-  border: 2px dashed transparent;
-  border-radius: var(--radius);
-  background: none;
-  color: var(--accent-strong);
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0 6px;
-}
-.append-zone:empty { min-width: 12px; }
-.word-input:has(.tile-selected) .append-zone,
-.append-zone:not(:empty) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-.word-input.word-long .append-zone,
-.word-input.word-xlong .append-zone { height: 44px; }
+/* Empty slot in the word area is now a button. Inherit tap feedback from base. */
+button.empty-slot { cursor: pointer; background: var(--surface); }
+button.empty-slot:hover { border-style: solid; }
 
 .status-banner {
   min-height: 22px;

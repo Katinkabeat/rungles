@@ -6,8 +6,11 @@ import { scoreRung } from './scoring.js';
 
 const TOTAL_RUNGS = 7;
 const MIN_WORD_LEN = 4;
+const MAX_WORD_LEN = 7;
 const CARRY_REQUIRED = 3;
 const HINT_COST = 5;
+
+function emptyWord() { return new Array(MAX_WORD_LEN).fill(null); }
 
 const state = {
   bag: [],
@@ -17,11 +20,18 @@ const state = {
   ladder: [],               // [{ word, rungScore, premiumPos }]
   prevWord: null,           // string of letters from previous rung
   carried: [],              // [{ letter, used: boolean }] — letters available from prev word
-  selected: [],             // [{ source: 'rack'|'carried', idx, letter }] — current word builder
-  selection: null,          // { source: 'rack'|'carried'|'word', idx } — tile the user has picked up
+  selected: emptyWord(),    // length-MAX_WORD_LEN sparse array; each slot is null or { source, idx, letter }
+  selection: null,          // { source: 'rack'|'carried', idx } — tile the user has picked up from rack/carried
   premiumPos: null,         // 1-based or null
   gameOver: false,
 };
+
+function currentWordLetters() { return state.selected.filter(Boolean); }
+function carriedUsedCount()   { return state.selected.filter(e => e && e.source === 'carried').length; }
+function filledSlotCount()    { return state.selected.filter(Boolean).length; }
+function lastFilledSlot()     { for (let i = MAX_WORD_LEN - 1; i >= 0; i--) if (state.selected[i]) return i; return -1; }
+function hasGap()             { const last = lastFilledSlot(); return last >= 0 && last + 1 !== filledSlotCount(); }
+function firstEmptySlot()     { for (let i = 0; i < MAX_WORD_LEN; i++) if (!state.selected[i]) return i; return -1; }
 
 // ---------- helpers ----------
 
@@ -31,11 +41,7 @@ function pickPremiumPos() {
 }
 
 function currentWord() {
-  return state.selected.map(s => s.letter).join('');
-}
-
-function carriedUsedCount() {
-  return state.selected.filter(s => s.source === 'carried').length;
+  return currentWordLetters().map(s => s.letter).join('');
 }
 
 // ---------- tile factory ----------
@@ -96,7 +102,7 @@ function renderCarried() {
   const row = document.createElement('div');
   row.className = 'carried-row';
   const usedCarriedIdxs = new Set(
-    state.selected.filter(s => s.source === 'carried').map(s => s.idx)
+    state.selected.filter(e => e && e.source === 'carried').map(e => e.idx)
   );
   state.carried.forEach((c, idx) => {
     const used = usedCarriedIdxs.has(idx);
@@ -106,7 +112,7 @@ function renderCarried() {
     if (selectionMatches('carried', idx)) tile.classList.add('tile-selected');
     tile.addEventListener('click', () => {
       if (used) return;
-      handleTileTap('carried', idx);
+      handleSourceTap('carried', idx);
     });
     row.append(tile);
   });
@@ -116,50 +122,27 @@ function renderCarried() {
 function renderWordInput() {
   const input = document.querySelector('.word-input');
   input.innerHTML = '';
-  // Shrink tiles when the row is long so it stays on one line on phone widths.
-  const totalSlots = Math.max(state.selected.length, state.premiumPos || 0);
-  input.classList.toggle('word-long', totalSlots >= 7);
-  input.classList.toggle('word-xlong', totalSlots >= 10);
-  if (state.selected.length === 0 && !state.premiumPos) {
-    const ph = document.createElement('span');
-    ph.className = 'word-placeholder';
-    ph.textContent = state.selection
-      ? 'Tap here to place at the end'
-      : 'Tap tiles to build a word';
-    input.append(ph);
-    // Whole empty input acts as append-zone when something's selected.
-    input.onclick = (e) => { if (e.target === input || e.target === ph) handleAppendZoneTap(); };
-    return;
-  }
-  input.onclick = null;
-  state.selected.forEach((entry, pos) => {
-    const isPremium = (pos + 1) === state.premiumPos && entry.source === 'rack';
-    const tile = makeTile(entry.letter, { premium: isPremium });
-    tile.classList.add('tile-in-word');
-    if (entry.source === 'carried') tile.classList.add('tile-in-word-carried');
-    if (selectionMatches('word', pos)) tile.classList.add('tile-selected');
-    tile.addEventListener('click', () => { handleTileTap('word', pos); });
-    input.append(tile);
-  });
-  // If the premium slot hasn't been reached yet, preview empty slots up to and including it.
-  if (state.premiumPos && state.selected.length < state.premiumPos) {
-    for (let pos = state.selected.length + 1; pos <= state.premiumPos; pos++) {
-      const slot = document.createElement('div');
-      const isPremium = (pos === state.premiumPos);
-      slot.className = 'empty-slot' + (isPremium ? ' empty-slot-premium' : '');
-      slot.textContent = isPremium ? '2×' : '';
-      slot.setAttribute('aria-hidden', 'true');
-      input.append(slot);
+  input.classList.add('word-slots');
+  for (let slot = 0; slot < MAX_WORD_LEN; slot++) {
+    const entry = state.selected[slot];
+    const isPremium = (slot + 1) === state.premiumPos;
+    if (entry) {
+      const isPremiumHit = isPremium && entry.source === 'rack';
+      const tile = makeTile(entry.letter, { premium: isPremiumHit });
+      tile.classList.add('tile-in-word');
+      if (entry.source === 'carried') tile.classList.add('tile-in-word-carried');
+      tile.addEventListener('click', () => handleWordSlotTap(slot));
+      input.append(tile);
+    } else {
+      const empty = document.createElement('button');
+      empty.type = 'button';
+      empty.className = 'empty-slot' + (isPremium ? ' empty-slot-premium' : '');
+      empty.textContent = isPremium ? '2×' : '';
+      empty.setAttribute('aria-label', `Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`);
+      empty.addEventListener('click', () => handleWordSlotTap(slot));
+      input.append(empty);
     }
   }
-  // Trailing append-zone so the user can place at the very end of the word.
-  const appendZone = document.createElement('button');
-  appendZone.type = 'button';
-  appendZone.className = 'append-zone';
-  appendZone.setAttribute('aria-label', 'Place at end');
-  appendZone.textContent = state.selection ? '+' : '';
-  appendZone.addEventListener('click', handleAppendZoneTap);
-  input.append(appendZone);
 }
 
 // Count letters shared between two words as a multiset intersection.
@@ -176,17 +159,17 @@ function multisetIntersect(a, b) {
 function renderRack() {
   const container = document.querySelector('.rack-tiles');
   container.innerHTML = '';
-  const selectedRackIdxs = new Set(
-    state.selected.filter(s => s.source === 'rack').map(s => s.idx)
+  const usedRackIdxs = new Set(
+    state.selected.filter(e => e && e.source === 'rack').map(e => e.idx)
   );
   state.rack.forEach((letter, idx) => {
-    const inWord = selectedRackIdxs.has(idx);
+    const inWord = usedRackIdxs.has(idx);
     const tile = makeTile(letter, { ghost: inWord });
     tile.dataset.rackIndex = String(idx);
     if (selectionMatches('rack', idx)) tile.classList.add('tile-selected');
     tile.addEventListener('click', () => {
       if (inWord) return;
-      handleTileTap('rack', idx);
+      handleSourceTap('rack', idx);
     });
     container.append(tile);
   });
@@ -202,118 +185,70 @@ function selectionMatches(source, idx) {
 
 function clearSelection() { state.selection = null; }
 
-function handleTileTap(targetSource, targetIdx) {
-  // No selection yet: tapping any tile picks it up.
+// Handles taps on rack or carried tiles (the "source" pools).
+function handleSourceTap(source, idx) {
   if (!state.selection) {
-    state.selection = { source: targetSource, idx: targetIdx };
+    state.selection = { source, idx };
     renderAll();
     return;
   }
+  if (selectionMatches(source, idx)) {
+    clearSelection();
+    renderAll();
+    return;
+  }
+  const sel = state.selection;
 
-  // Same tile tapped again: deselect.
-  if (selectionMatches(targetSource, targetIdx)) {
+  // Rack -> rack: reorder the rack.
+  if (sel.source === 'rack' && source === 'rack') {
+    reorderRack(sel.idx, idx);
     clearSelection();
     renderAll();
     return;
   }
 
-  const sel = state.selection;
-
-  // Placement into the word (either insert or move).
-  if (targetSource === 'word') {
-    if (sel.source === 'rack') {
-      placeRackIntoWord(sel.idx, targetIdx);
-    } else if (sel.source === 'carried') {
-      insertCarriedIntoWord(sel.idx, targetIdx);
-      clearSelection();
-      renderAll();
-    } else if (sel.source === 'word') {
-      moveWordTile(sel.idx, targetIdx);
-      clearSelection();
-      renderAll();
-    }
-    return;
-  }
-
-  // Target is a rack tile.
-  if (targetSource === 'rack') {
-    if (sel.source === 'rack') {
-      reorderRack(sel.idx, targetIdx);
-      clearSelection();
-      renderAll();
-      return;
-    }
-    if (sel.source === 'word') {
-      // Remove from word (no rack move — rack stays as-is). Reorder rack
-      // separately if you want.
-      state.selected.splice(sel.idx, 1);
-      clearSelection();
-      renderAll();
-      return;
-    }
-    // carried -> rack: switch selection (carried can't be placed in rack).
-    state.selection = { source: 'rack', idx: targetIdx };
-    renderAll();
-    return;
-  }
-
-  // Target is a carried tile — only valid "placement" is switching selection.
-  if (targetSource === 'carried') {
-    if (sel.source === 'word') {
-      state.selected.splice(sel.idx, 1);
-      clearSelection();
-    } else {
-      state.selection = { source: 'carried', idx: targetIdx };
-    }
-    renderAll();
-    return;
-  }
+  // Any other cross-source tap just switches selection.
+  state.selection = { source, idx };
+  renderAll();
 }
 
-function handleAppendZoneTap() {
-  if (!state.selection) return;
+// Handles taps on one of the 7 word slots (empty or filled).
+function handleWordSlotTap(slot) {
+  const entry = state.selected[slot];
+
+  // Nothing selected: tapping a filled slot returns the tile to its origin.
+  if (!state.selection) {
+    if (entry) {
+      state.selected[slot] = null;
+      renderAll();
+    }
+    return;
+  }
+
+  // Selected tile drops into the slot; any displaced tile goes back to origin
+  // automatically because state.selected is the only thing keeping it "in use".
   const sel = state.selection;
-  const endPos = state.selected.length;
+
   if (sel.source === 'rack') {
-    placeRackIntoWord(sel.idx, endPos);
-    return;
+    const letter = state.rack[sel.idx];
+    if (letter === '_') {
+      // Blank: ask for a letter, then place.
+      pickBlankLetter().then(picked => {
+        if (!picked) return;
+        state.selected[slot] = { source: 'rack', idx: sel.idx, letter: picked };
+        clearSelection();
+        renderAll();
+      });
+      return;
+    }
+    state.selected[slot] = { source: 'rack', idx: sel.idx, letter };
+  } else if (sel.source === 'carried') {
+    const letter = state.carried[sel.idx].letter;
+    state.selected[slot] = { source: 'carried', idx: sel.idx, letter };
   }
-  if (sel.source === 'carried') {
-    insertCarriedIntoWord(sel.idx, endPos);
-  } else if (sel.source === 'word') {
-    moveWordTile(sel.idx, endPos);
-  }
+
   clearSelection();
   renderAll();
-}
-
-// Synchronous for normal tiles; async only when a blank needs a letter picked.
-function placeRackIntoWord(rackIdx, pos) {
-  const letter = state.rack[rackIdx];
-  if (letter === '_') {
-    pickBlankLetter().then(picked => {
-      if (!picked) return;
-      state.selected.splice(pos, 0, { source: 'rack', idx: rackIdx, letter: picked });
-      clearSelection();
-      renderAll();
-    });
-    return;
-  }
-  state.selected.splice(pos, 0, { source: 'rack', idx: rackIdx, letter });
-  clearSelection();
-  renderAll();
-}
-
-function insertCarriedIntoWord(carriedIdx, pos) {
-  const entry = state.carried[carriedIdx];
-  state.selected.splice(pos, 0, { source: 'carried', idx: carriedIdx, letter: entry.letter });
-}
-
-function moveWordTile(fromPos, toPos) {
-  if (fromPos === toPos) return;
-  const [entry] = state.selected.splice(fromPos, 1);
-  const insertAt = fromPos < toPos ? toPos - 1 : toPos;
-  state.selected.splice(insertAt, 0, entry);
 }
 
 function reorderRack(fromIdx, toIdx) {
@@ -331,8 +266,8 @@ function reorderRack(fromIdx, toIdx) {
   oldInNew.forEach((oldIdx, newIdx) => { remap[oldIdx] = newIdx; });
 
   state.rack = newRack;
-  state.selected = state.selected.map(s =>
-    s.source === 'rack' ? { ...s, idx: remap[s.idx] } : s
+  state.selected = state.selected.map(e =>
+    (e && e.source === 'rack') ? { ...e, idx: remap[e.idx] } : e
   );
 }
 
@@ -416,7 +351,7 @@ function renderLadder() {
 function renderPreview() {
   const el = document.querySelector('.solo-preview');
   if (!el) return;
-  if (!state.selected || state.selected.length === 0) {
+  if (filledSlotCount() === 0) {
     el.textContent = '';
     el.classList.remove('score-preview-active');
     return;
@@ -468,6 +403,10 @@ function pulseScore() {
 
 function handleSubmit() {
   if (state.gameOver) return;
+  if (hasGap()) {
+    flashInput(false, 'Fill the empty slot(s) before submitting');
+    return;
+  }
   const word = currentWord();
   if (word.length < MIN_WORD_LEN) {
     flashInput(false, `Too short — minimum ${MIN_WORD_LEN} letters`);
@@ -482,18 +421,19 @@ function handleSubmit() {
     return;
   }
 
+  const compact = currentWordLetters();
   const rungScore = scoreRung(state.selected, state.premiumPos);
   state.totalScore += rungScore;
   state.ladder.push({
     word,
     rungScore,
     premiumPos: state.premiumPos,
-    sources: state.selected.map(s => s.source),
+    sources: compact.map(s => s.source),
   });
   pulseScore();
 
   // Consume rack tiles — remove used rack indices and refill from bag.
-  const usedRackIdxs = state.selected
+  const usedRackIdxs = compact
     .filter(s => s.source === 'rack')
     .map(s => s.idx)
     .sort((a, b) => b - a);
@@ -503,7 +443,7 @@ function handleSubmit() {
   // Advance.
   state.prevWord = word;
   state.rungNumber += 1;
-  state.selected = [];
+  state.selected = emptyWord();
   state.selection = null;
 
   if (state.rungNumber > TOTAL_RUNGS) {
@@ -619,8 +559,8 @@ function handleGiveUp() {
 }
 
 function handleClear() {
-  if (state.selected.length === 0 && !state.selection) return;
-  state.selected = [];
+  if (filledSlotCount() === 0 && !state.selection) return;
+  state.selected = emptyWord();
   clearSelection();
   renderAll();
 }
@@ -660,9 +600,10 @@ function handleKeydown(e) {
     return;
   }
   if (e.key === 'Backspace') {
-    if (state.selected.length > 0) {
+    const last = lastFilledSlot();
+    if (last >= 0) {
       e.preventDefault();
-      state.selected.pop();
+      state.selected[last] = null;
       renderAll();
     }
     return;
@@ -674,7 +615,7 @@ function handleKeydown(e) {
       renderAll();
       return;
     }
-    if (state.selected.length > 0) {
+    if (filledSlotCount() > 0) {
       e.preventDefault();
       handleClear();
     }
@@ -687,18 +628,20 @@ function handleKeydown(e) {
 }
 
 function tryTypeLetter(letter) {
+  const slot = firstEmptySlot();
+  if (slot === -1) return; // all 7 slots full
   // Prefer carried letters (free) over rack tiles.
-  const usedCarriedIdxs = new Set(state.selected.filter(s => s.source === 'carried').map(s => s.idx));
+  const usedCarriedIdxs = new Set(state.selected.filter(e => e && e.source === 'carried').map(e => e.idx));
   const carriedMatch = state.carried.findIndex((c, i) => c.letter === letter && !usedCarriedIdxs.has(i));
   if (carriedMatch !== -1) {
-    state.selected.push({ source: 'carried', idx: carriedMatch, letter });
+    state.selected[slot] = { source: 'carried', idx: carriedMatch, letter };
     renderAll();
     return;
   }
-  const usedRackIdxs = new Set(state.selected.filter(s => s.source === 'rack').map(s => s.idx));
+  const usedRackIdxs = new Set(state.selected.filter(e => e && e.source === 'rack').map(e => e.idx));
   const rackMatch = state.rack.findIndex((l, i) => l === letter && !usedRackIdxs.has(i));
   if (rackMatch !== -1) {
-    state.selected.push({ source: 'rack', idx: rackMatch, letter });
+    state.selected[slot] = { source: 'rack', idx: rackMatch, letter };
     renderAll();
   }
   // If no match: silently ignore. (Could flash a subtle feedback, but don't spam.)
@@ -707,8 +650,8 @@ function tryTypeLetter(letter) {
 // ---------- shuffle ----------
 
 function handleShuffle() {
-  // Shuffle only the rack tiles that aren't currently selected; keep selected-tile positions stable.
-  const selectedIdxs = new Set(state.selected.filter(s => s.source === 'rack').map(s => s.idx));
+  // Shuffle only the rack tiles that aren't currently in the word; keep in-word positions stable.
+  const selectedIdxs = new Set(state.selected.filter(e => e && e.source === 'rack').map(e => e.idx));
   const freeIdxs = state.rack.map((_, i) => i).filter(i => !selectedIdxs.has(i));
   const freeLetters = freeIdxs.map(i => state.rack[i]);
   for (let i = freeLetters.length - 1; i > 0; i--) {
@@ -730,7 +673,7 @@ function newGame() {
   state.ladder = [];
   state.prevWord = null;
   state.carried = [];
-  state.selected = [];
+  state.selected = emptyWord();
   state.selection = null;
   state.premiumPos = pickPremiumPos();
   state.gameOver = false;
