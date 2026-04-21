@@ -141,7 +141,16 @@ export async function initNotificationBanner(userId) {
     const perm = getPushPermissionState();
     if (perm === 'unsupported' || perm === 'denied') return;
 
-    const active = await hasActivePushSubscription();
+    let active = await hasActivePushSubscription();
+
+    // Heal: if permission is still granted but there's no local subscription,
+    // the SW was likely unregistered at some point (or the browser dropped
+    // the sub). Silently re-subscribe so the user doesn't have to tap Enable
+    // again — their intent hasn't changed.
+    if (!active && perm === 'granted' && userId) {
+      active = await subscribeToPush(userId);
+    }
+
     if (active) {
       if (userId) resyncPushSubscription(userId);
       mount.append(renderEnabled(async () => {

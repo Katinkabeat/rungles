@@ -92,6 +92,8 @@
     </section>
 
     <div class="landing hidden">
+      <div class="rg-notif-mount" aria-live="polite"></div>
+
       <section class="card landing-solo">
         <h2 class="card-heading font-display">🎯 Solo</h2>
         <p class="card-sub">Climb a 7-rung ladder on your own.</p>
@@ -108,8 +110,6 @@
           <p class="empty-text font-display">No open games yet — create one!</p>
         </div>
       </section>
-
-      <div class="rg-notif-mount" aria-live="polite"></div>
     </div>
 
     <div class="solo-mode hidden">
@@ -382,8 +382,10 @@
         if (e.target.closest('.settings-action')) close();
       });
 
-      // Reload app: unregister service worker + clear caches, then hard reload
-      // so testers always land on the freshest deployed code.
+      // Reload app: check for a new service worker + activate it + clear HTTP
+      // caches, then hard reload. We do NOT unregister the SW here because that
+      // invalidates the user's Web Push subscription (they'd have to re-enable
+      // notifications every time they refresh).
       const reloadBtn = menu.querySelector('.settings-reload');
       reloadBtn?.addEventListener('click', async () => {
         reloadBtn.disabled = true;
@@ -391,7 +393,10 @@
         try {
           if ('serviceWorker' in navigator) {
             const regs = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(regs.map(r => r.unregister()));
+            for (const r of regs) {
+              try { await r.update(); } catch {}
+              if (r.waiting) r.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
           }
           if ('caches' in window) {
             const keys = await caches.keys();
