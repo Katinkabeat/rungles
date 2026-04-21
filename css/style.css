@@ -121,15 +121,12 @@ html, body {
   font-weight: 500;
 }
 
-/* Ladder.
-   flex:1 0 auto = basis auto (so content size is visible to parent's
-   flex measurement, critical for solo-mode to grow with content and
-   sticky actions to pin correctly), grow 1 (absorb leftover on short
-   content), shrink 0 (don't compress below content). */
+/* Ladder takes its natural content height — do not flex-grow to absorb
+   leftover. Leftover space gets pushed to below the rack via the actions'
+   margin-top: auto, keeping the play area high on screen. */
 .ladder {
-  flex: 1 0 auto;
+  flex: 0 0 auto;
   padding: 8px 16px;
-  min-height: 60px;
 }
 
 .ladder-empty {
@@ -700,7 +697,9 @@ dialog::backdrop {
 
 /* Actions — sticky pinned to the bottom of the scrolling mode container.
    Wordy pattern: solid background so scrolled content doesn't bleed
-   through, and safe-area padding so iOS home indicators don't cover it. */
+   through, and safe-area padding so iOS home indicators don't cover it.
+   margin-top:auto absorbs leftover flex space so leftover goes BELOW the
+   rack rather than above the play area. */
 .actions {
   display: flex;
   gap: 6px;
@@ -710,6 +709,7 @@ dialog::backdrop {
   position: sticky;
   bottom: 0;
   z-index: 5;
+  margin-top: auto;
 }
 
 .btn {
@@ -1062,11 +1062,9 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* flex: 1 0 auto so content size is visible to parent's flex measurement
-     (needed for sticky actions to pin correctly when the match view is
-     taller than the viewport). */
-  flex: 1 0 auto;
-  min-height: 60px;
+  /* Natural content height — leftover gets absorbed by match-actions'
+     margin-top:auto below, so the play area sits high on screen. */
+  flex: 0 0 auto;
   padding: 2px;
 }
 .ladder-seed {
@@ -1098,6 +1096,7 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   position: sticky;
   bottom: 0;
   z-index: 5;
+  margin-top: auto;
 }
 
 /* ---------- Icon buttons (Wordy-style: emoji over label, single row) ---------- */
