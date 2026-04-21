@@ -150,6 +150,51 @@ function appendWordWithCarryHighlight(container, word, prevWord) {
   }
 }
 
+// Mid-game ladder history popup for multi. Includes the seed at the bottom.
+function openMatchHistoryModal() {
+  const modal = document.querySelector('.history-modal');
+  if (!modal) return;
+  const rungs = modal.querySelector('.history-rungs');
+  rungs.innerHTML = '';
+  state.rungs.forEach((r, i) => {
+    const prev = r.rung_number === 1
+      ? (state.game?.seed_word ?? '')
+      : (state.rungs[i - 1]?.word ?? '');
+    const row = document.createElement('div');
+    row.className = 'ladder-row';
+    const who = r.player_user_id === state.me.userId ? 'You' : state.opponent.username;
+    const label = document.createElement('span');
+    label.className = 'ladder-label';
+    label.textContent = `Rung ${r.rung_number} (${who})`;
+    const word = document.createElement('span');
+    word.className = 'ladder-word';
+    appendWordWithCarryHighlight(word, r.word, prev);
+    const score = document.createElement('span');
+    score.className = 'ladder-score';
+    score.textContent = `+${r.rung_score}`;
+    row.append(label, word, score);
+    rungs.append(row);
+  });
+  if (state.game?.seed_word) {
+    const seedRow = document.createElement('div');
+    seedRow.className = 'ladder-row ladder-seed';
+    const label = document.createElement('span');
+    label.className = 'ladder-label';
+    label.textContent = 'Seed';
+    const word = document.createElement('span');
+    word.className = 'ladder-word';
+    word.textContent = state.game.seed_word;
+    const score = document.createElement('span');
+    score.className = 'ladder-score';
+    score.textContent = '—';
+    seedRow.append(label, word, score);
+    rungs.append(seedRow);
+  }
+  const closeBtn = modal.querySelector('.history-close');
+  closeBtn.onclick = () => modal.close();
+  modal.showModal();
+}
+
 function renderPreview() {
   const el = els.preview();
   if (!el) return;
@@ -176,6 +221,17 @@ function renderLadder() {
       : (state.rungs[state.rungs.length - 2]?.word ?? '');
     const row = document.createElement('div');
     row.className = 'ladder-row';
+    if (state.rungs.length > 1) {
+      row.classList.add('ladder-tappable');
+      row.setAttribute('role', 'button');
+      row.setAttribute('tabindex', '0');
+      row.setAttribute('aria-label', 'Show all played rungs');
+      const open = () => openMatchHistoryModal();
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    }
     const who = last.player_user_id === state.me.userId ? 'You' : state.opponent.username;
     const label = document.createElement('span');
     label.className = 'ladder-label';
@@ -214,6 +270,11 @@ function renderCurrent() {
   // Word input
   const input = els.wordInput();
   input.innerHTML = '';
+  // Shrink tiles when the row is long so it stays on one line on phone
+  // widths (matches solo behaviour; fixes iOS Safari overflow in multi).
+  const totalSlots = Math.max(state.selected.length, state.premiumPos || 0);
+  input.classList.toggle('word-long', totalSlots >= 7);
+  input.classList.toggle('word-xlong', totalSlots >= 10);
   if (state.selected.length === 0) {
     const ph = document.createElement('span');
     ph.className = 'word-placeholder';

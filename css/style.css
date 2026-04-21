@@ -204,10 +204,14 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
   flex-wrap: wrap;
 }
 
-/* Auto-shrink tiles + slots when the word row is long, so it stays on one line on phone widths. */
+/* Auto-shrink tiles + slots when the word row is long, so it stays on one
+   line on phone widths. flex-shrink + min-width:0 lets tiles compress past
+   their stated width if needed (e.g. 12-letter words on a 320px screen). */
 .word-input.word-long { gap: 3px; flex-wrap: nowrap; }
 .word-input.word-long .tile,
 .word-input.word-long .empty-slot {
+  flex: 0 1 36px;
+  min-width: 0;
   width: 36px;
   height: 44px;
   font-size: 1.1rem;
@@ -217,6 +221,8 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 .word-input.word-xlong { gap: 2px; }
 .word-input.word-xlong .tile,
 .word-input.word-xlong .empty-slot {
+  flex: 0 1 30px;
+  min-width: 0;
   width: 30px;
   height: 38px;
   font-size: 0.95rem;
@@ -274,17 +280,27 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 }
 .tile-small .tile-value { font-size: 0.55rem; bottom: 2px; right: 3px; }
 
-.tile-carried {
-  background: var(--teal-soft);
-  border-color: var(--teal);
-  box-shadow: 0 2px 0 #5cbcbe;
-}
-
+/* Carried tiles (non-scoring) — grey so they read as "free" next to the
+   purple rack tiles and gold 2× slot. Applied both in the carried row above
+   the rack and when the tile is placed in the word builder. */
+.tile-carried,
 .tile-in-word-carried {
-  background: var(--teal-soft) !important;
-  border-color: var(--teal) !important;
-  box-shadow: 0 2px 0 #5cbcbe !important;
+  background: #e5e5e5 !important;
+  border-color: #a3a3a3 !important;
+  color: #525252 !important;
+  box-shadow: 0 2px 0 #737373 !important;
 }
+.tile-carried .tile-value,
+.tile-in-word-carried .tile-value { color: #737373 !important; }
+html.dark .tile-carried,
+html.dark .tile-in-word-carried {
+  background: #3f3f46 !important;
+  border-color: #71717a !important;
+  color: #e4e4e7 !important;
+  box-shadow: 0 2px 0 #52525b !important;
+}
+html.dark .tile-carried .tile-value,
+html.dark .tile-in-word-carried .tile-value { color: #a1a1aa !important; }
 
 .tile-premium {
   outline: 3px solid #f5a623;
@@ -335,6 +351,35 @@ html.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 .ladder-letter { display: inline-block; }
 .ladder-letter-carried { color: #2a7a5a; }
 html.dark .ladder-letter-carried { color: #4ade80; }
+
+/* Tappable ladder row hints that there's history to see. */
+.ladder-row.ladder-tappable {
+  cursor: pointer;
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  transition: background 0.1s;
+}
+.ladder-row.ladder-tappable:hover { background: var(--accent-soft); }
+.ladder-row.ladder-tappable::after {
+  content: '▸';
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+
+/* Full history modal. */
+.history-card { max-height: 80vh; overflow-y: auto; }
+.history-rungs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 16px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.history-rungs .ladder-row { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.history-rungs .ladder-row:last-child { border-bottom: none; }
+.history-close { width: 100%; }
 
 /* Live score preview as tiles are placed. Small pill near the word builder. */
 .score-preview {

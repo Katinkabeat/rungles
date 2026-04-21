@@ -267,6 +267,14 @@
     </div>
   </dialog>
 
+  <dialog class="history-modal" aria-label="Full rung history">
+    <div class="modal-card history-card">
+      <h2 class="modal-title">Ladder so far</h2>
+      <div class="history-rungs"></div>
+      <button class="btn btn-primary modal-dismiss history-close" type="button">Close</button>
+    </div>
+  </dialog>
+
   <dialog class="endgame-modal" aria-label="Game complete">
     <div class="modal-card endgame-card">
       <h2 class="endgame-title">Ladder Complete!</h2>
@@ -277,12 +285,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=18"></script>
+  <script type="module" src="js/game.js?v=19"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=18';
+    import { initMultiplayer } from './js/multiplayer.js?v=19';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=18"></script>
+  <script src="js/sw-update.js?v=19"></script>
   <script>
     // Dark mode toggle. Pre-paint script in <head> already applied the right
     // theme; this just wires the header button + persists changes.

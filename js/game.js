@@ -228,6 +228,17 @@ function renderLadder() {
   const last = state.ladder[state.ladder.length - 1];
   const row = document.createElement('div');
   row.className = 'ladder-row';
+  if (state.ladder.length > 1) {
+    row.classList.add('ladder-tappable');
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('aria-label', 'Show all played rungs');
+    const open = () => openHistoryModal();
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+  }
   const label = document.createElement('span');
   label.className = 'ladder-label';
   label.textContent = `Rung ${state.ladder.length}`;
@@ -364,6 +375,41 @@ function endGame({ gaveUp = false } = {}) {
   const newBtn = document.querySelector('.btn-newgame');
   if (newBtn) newBtn.disabled = false;
   showEndGameModal({ gaveUp });
+}
+
+// Mid-game ladder history popup. Renders every rung played so far with
+// carry highlights so the player can revisit earlier words.
+function openHistoryModal() {
+  const modal = document.querySelector('.history-modal');
+  if (!modal) return;
+  const rungs = modal.querySelector('.history-rungs');
+  rungs.innerHTML = '';
+  state.ladder.forEach((rung, i) => {
+    const row = document.createElement('div');
+    row.className = 'ladder-row';
+    const label = document.createElement('span');
+    label.className = 'ladder-label';
+    label.textContent = `Rung ${i + 1}`;
+    const word = document.createElement('span');
+    word.className = 'ladder-word';
+    rung.word.toUpperCase().split('').forEach((ch, j) => {
+      const span = document.createElement('span');
+      span.className = 'ladder-letter';
+      span.textContent = ch;
+      if (rung.sources && rung.sources[j] === 'carried') {
+        span.classList.add('ladder-letter-carried');
+      }
+      word.append(span);
+    });
+    const score = document.createElement('span');
+    score.className = 'ladder-score';
+    score.textContent = `+${rung.rungScore}`;
+    row.append(label, word, score);
+    rungs.append(row);
+  });
+  const closeBtn = modal.querySelector('.history-close');
+  closeBtn.onclick = () => modal.close();
+  modal.showModal();
 }
 
 function showEndGameModal({ gaveUp }) {
