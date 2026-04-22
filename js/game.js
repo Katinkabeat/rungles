@@ -557,8 +557,20 @@ function showEndGameModal({ gaveUp }) {
       row.className = 'endgame-rung-row';
       const left = document.createElement('span');
       const labelTxt = document.createTextNode(`Rung ${i + 1}: `);
-      const wordEl = document.createElement('strong');
-      wordEl.textContent = rung.word;
+      const wordEl = document.createElement('span');
+      wordEl.className = 'ladder-word';
+      rung.word.toUpperCase().split('').forEach((ch, j) => {
+        const span = document.createElement('span');
+        span.className = 'ladder-letter';
+        span.textContent = ch;
+        const fromCarried = rung.sources && rung.sources[j] === 'carried';
+        if (fromCarried) {
+          span.classList.add('ladder-letter-carried');
+        } else if (rung.premiumPos && (j + 1) === rung.premiumPos) {
+          span.classList.add('ladder-letter-premium');
+        }
+        wordEl.append(span);
+      });
       left.append(labelTxt, wordEl);
       const right = document.createElement('span');
       right.textContent = `+${rung.rungScore}`;

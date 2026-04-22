@@ -619,15 +619,19 @@ function showEndgameModal() {
 
   const rungsContainer = els.endRungs();
   rungsContainer.innerHTML = '';
-  state.rungs.forEach(r => {
+  state.rungs.forEach((r, i) => {
+    const prev = r.rung_number === 1
+      ? (state.game?.seed_word ?? '')
+      : (state.rungs[i - 1]?.word ?? '');
     const row = document.createElement('div');
     row.className = 'endgame-rung-row';
     const who = r.player_user_id === state.me.userId ? 'You' : state.opponent.username;
     const left = document.createElement('span');
     // DOM-build instead of innerHTML to avoid XSS via username.
     const labelTxt = document.createTextNode(`Rung ${r.rung_number} (${who}): `);
-    const wordEl = document.createElement('strong');
-    wordEl.textContent = r.word;
+    const wordEl = document.createElement('span');
+    wordEl.className = 'ladder-word';
+    appendWordWithCarryHighlight(wordEl, r.word, prev, r.premium_pos);
     left.append(labelTxt, wordEl);
     const right = document.createElement('span');
     right.textContent = `+${r.rung_score}`;
