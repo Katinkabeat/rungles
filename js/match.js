@@ -36,6 +36,8 @@ const els = {
   endScoreLbl: () => document.querySelector('.endgame-modal .endgame-score'),
   endRungs:    () => document.querySelector('.endgame-modal .endgame-rungs'),
   endPlayAgain:() => document.querySelector('.endgame-modal .btn-playagain'),
+  finalPill:   () => document.querySelector('.match-final-pill'),
+  actionsBar:  () => document.querySelector('.match-actions'),
 };
 
 let state = null;        // see resetState
@@ -480,6 +482,12 @@ function renderActions() {
   els.giveUpBtn().disabled = !active || state.submitting;
   // Reset the give-up confirm state when the game ends.
   if (!active) resetGiveUpArm();
+
+  // When the game has ended, hide the action buttons and show the pill so
+  // the board stays readable; the pill reopens the endgame modal on tap.
+  const complete = state.game?.status === 'complete';
+  els.actionsBar()?.classList.toggle('hidden', complete);
+  els.finalPill()?.classList.toggle('hidden', !complete);
 }
 
 function renderStatus(msg, kind) {
@@ -700,7 +708,8 @@ async function loadAll() {
   await loadPremium();
 
   render();
-  if (state.game?.status === 'complete') showEndgameModal();
+  // On load/reopen of an already-complete game, land on the board with the
+  // pill rather than the modal — lets the player see the final board first.
 }
 
 async function loadPremium() {
@@ -737,7 +746,16 @@ function subscribe() {
         // Reload rack on turn change (server may have refilled it).
         refreshRack().then(() => {
           render();
-          if (state.game.status === 'complete' && !wasComplete) showEndgameModal();
+          if (state.game.status === 'complete' && !wasComplete) {
+            // Real-time transition to complete. The player who submitted the
+            // final rung gets the modal immediately (they triggered it and
+            // expect the score); the other player lands on the board with
+            // the pill so they can see the opponent's winning word first.
+            const lastRung = state.rungs[state.rungs.length - 1];
+            const iLastMoved = lastRung?.player_user_id === state.me.userId;
+            if (iLastMoved) showEndgameModal();
+            else renderStatus(`🏁 Game complete — tap "Show final score" below.`, 'ok');
+          }
         });
       })
     // Score updates
@@ -783,6 +801,7 @@ export async function startMatch(gameId, session, leaveCallback) {
     els.skipBtn().addEventListener('click', handleSkip);
     els.giveUpBtn().addEventListener('click', handleGiveUp);
     els.leaveBtn().addEventListener('click', handleLeave);
+    els.finalPill()?.addEventListener('click', () => showEndgameModal());
     submit.dataset.bound = '1';
   }
 

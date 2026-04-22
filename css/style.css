@@ -608,6 +608,26 @@ dialog::backdrop {
 }
 .btn-playagain { width: 100%; }
 
+/* Sticky "Show final score" pill shown when a multiplayer match has ended.
+   Replaces the action buttons so the board stays readable underneath. */
+.match-final-pill {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 12px auto;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.28);
+  cursor: pointer;
+}
+.match-final-pill:active { transform: translateY(1px); }
+
 /* Rack */
 .rack {
   padding: 8px 12px;

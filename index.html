@@ -206,6 +206,10 @@
           <div class="match-rack-tiles rack-tiles"></div>
         </section>
 
+        <button class="match-final-pill hidden" type="button" aria-label="Show final score">
+          🏁 Show final score
+        </button>
+
         <div class="match-actions actions actions-icons">
           <button class="btn-icon btn-icon-primary match-submit" type="button">
             <span class="btn-icon-emoji">✅</span>
@@ -327,12 +331,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=25"></script>
+  <script type="module" src="js/game.js?v=26"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=25';
+    import { initMultiplayer } from './js/multiplayer.js?v=26';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=25"></script>
+  <script src="js/sw-update.js?v=26"></script>
   <script>
     // Dark mode toggle + settings dropdown wiring.
     document.addEventListener('DOMContentLoaded', () => {
