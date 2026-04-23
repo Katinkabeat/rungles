@@ -3,6 +3,7 @@
 import { dealOpeningHand, refillRack, LETTER_VALUES, RACK_SIZE } from './tiles.js';
 import { loadDictionary, isValidWord, dictionarySize, canFormAnyWord, findHintWord } from './dictionary.js';
 import { scoreRung } from './scoring.js';
+import { supabase } from './supabase-client.js';
 
 const TOTAL_RUNGS = 7;
 const MIN_WORD_LEN = 4;
@@ -494,7 +495,35 @@ function endGame({ gaveUp = false } = {}) {
   document.querySelectorAll('.actions .btn').forEach(b => b.disabled = true);
   const newBtn = document.querySelector('.btn-newgame');
   if (newBtn) newBtn.disabled = false;
+  recordSoloGame({ gaveUp });
   showEndGameModal({ gaveUp });
+}
+
+// Persist the completed game to Supabase so it counts toward personal stats
+// and (Phase 2) the cross-account leaderboard. Fire-and-forget — if the
+// network's down we don't want to block the endgame modal.
+async function recordSoloGame({ gaveUp }) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // Solo playable while signed out; only record when authed.
+    let bestWord = null, bestRungScore = null;
+    for (const rung of state.ladder) {
+      if (bestRungScore == null || rung.rungScore > bestRungScore) {
+        bestRungScore = rung.rungScore;
+        bestWord = rung.word;
+      }
+    }
+    await supabase.from('rg_solo_games').insert({
+      user_id: user.id,
+      total_score: state.totalScore,
+      rungs_completed: state.ladder.length,
+      gave_up: gaveUp,
+      best_word: bestWord,
+      best_rung_score: bestRungScore,
+    });
+  } catch (e) {
+    console.warn('Failed to record solo game', e);
+  }
 }
 
 // Mid-game ladder history popup. Renders every rung played so far with
@@ -706,6 +735,108 @@ function handleShuffle() {
   renderAll();
 }
 
+// ---------- stats modal ----------
+
+async function openStatsModal() {
+  const modal = document.querySelector('.stats-modal');
+  const body = modal.querySelector('.stats-body');
+  body.innerHTML = '<p class="stats-loading">Loading…</p>';
+  modal.showModal();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    body.innerHTML = '<p class="stats-empty">Sign in to track your stats.</p>';
+    return;
+  }
+
+  const { data: rows, error } = await supabase
+    .from('rg_solo_games')
+    .select('total_score, rungs_completed, gave_up, best_word, best_rung_score, played_at')
+    .eq('user_id', user.id)
+    .order('played_at', { ascending: false });
+  if (error) {
+    body.innerHTML = `<p class="stats-empty">Couldn't load stats: ${error.message}</p>`;
+    return;
+  }
+  if (!rows || rows.length === 0) {
+    body.innerHTML = '<p class="stats-empty">No games yet — go climb a ladder!</p>';
+    return;
+  }
+
+  const completed = rows.filter(r => !r.gave_up);
+  const bestScore = Math.max(...rows.map(r => r.total_score));
+  const avgScore = completed.length
+    ? Math.round(completed.reduce((s, r) => s + r.total_score, 0) / completed.length)
+    : null;
+  const totalRungs = rows.reduce((s, r) => s + r.rungs_completed, 0);
+  const totalRungScore = rows.reduce((s, r) => s + r.total_score, 0);
+  const avgRungScore = totalRungs ? Math.round(totalRungScore / totalRungs) : null;
+  let bestRung = null;
+  for (const r of rows) {
+    if (r.best_rung_score != null && (bestRung == null || r.best_rung_score > bestRung.best_rung_score)) {
+      bestRung = r;
+    }
+  }
+
+  const topStats = [
+    ['Best score', bestScore],
+    ['Games completed', `${completed.length} / ${rows.length}`],
+    ['Average score (completed)', avgScore ?? '—'],
+    ['Avg rung score', avgRungScore ?? '—'],
+    ['Best single rung', bestRung ? `${bestRung.best_word} (+${bestRung.best_rung_score})` : '—'],
+  ];
+
+  body.innerHTML = '';
+  for (const [label, value] of topStats) {
+    const row = document.createElement('div');
+    row.className = 'stats-row';
+    const l = document.createElement('span');
+    l.className = 'stats-label';
+    l.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'stats-value';
+    v.textContent = value;
+    row.append(l, v);
+    body.append(row);
+  }
+
+  const title = document.createElement('h3');
+  title.className = 'stats-section-title';
+  title.textContent = 'Last 10 games';
+  body.append(title);
+
+  const recent = rows.slice(0, 10);
+  for (const r of recent) {
+    const row = document.createElement('div');
+    row.className = 'stats-recent-row';
+    const left = document.createElement('span');
+    left.className = 'stats-recent-date';
+    left.textContent = formatPlayedAt(r.played_at);
+    const right = document.createElement('span');
+    const score = document.createElement('span');
+    score.className = 'stats-recent-score';
+    score.textContent = r.total_score;
+    const badge = document.createElement('span');
+    badge.className = 'stats-recent-badge';
+    badge.textContent = r.gave_up
+      ? `🏳️ gave up rung ${r.rungs_completed + 1}`
+      : '🏁 complete';
+    right.append(score, badge);
+    row.append(left, right);
+    body.append(row);
+  }
+}
+
+function formatPlayedAt(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const opts = sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { year: 'numeric', month: 'short', day: 'numeric' };
+  return d.toLocaleDateString(undefined, opts);
+}
+
 // ---------- new game ----------
 
 function newGame() {
@@ -768,6 +899,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   solo?.querySelector('.btn-danger')?.addEventListener('click', handleGiveUp);
+  solo?.querySelector('.solo-stats-btn')?.addEventListener('click', openStatsModal);
+  document.querySelector('.stats-close')?.addEventListener('click', () => {
+    document.querySelector('.stats-modal')?.close();
+  });
   solo?.querySelector('.btn-newgame')?.addEventListener('click', () => {
     document.querySelector('.endgame-modal')?.close();
     newGame();

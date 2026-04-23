@@ -115,6 +115,7 @@
     <div class="solo-mode hidden">
     <div class="mode-topbar">
       <button class="menu-back" type="button" aria-label="Back to menu">← Menu</button>
+      <button class="solo-stats-btn" type="button" aria-label="Stats">📊 Stats</button>
     </div>
     <section class="game-info" aria-live="polite">
       <span class="info-rung">Rung 1 / 7</span>
@@ -321,6 +322,16 @@
     </div>
   </dialog>
 
+  <dialog class="stats-modal" aria-label="Solo stats">
+    <div class="modal-card stats-card">
+      <h2 class="modal-title">Your stats</h2>
+      <div class="stats-body">
+        <p class="stats-loading">Loading…</p>
+      </div>
+      <button class="btn btn-primary modal-dismiss stats-close" type="button">Close</button>
+    </div>
+  </dialog>
+
   <dialog class="endgame-modal" aria-label="Game complete">
     <div class="modal-card endgame-card">
       <h2 class="endgame-title">Ladder Complete!</h2>
@@ -331,12 +342,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=26"></script>
+  <script type="module" src="js/game.js?v=27"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=26';
+    import { initMultiplayer } from './js/multiplayer.js?v=27';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=26"></script>
+  <script src="js/sw-update.js?v=27"></script>
   <script>
     // Dark mode toggle + settings dropdown wiring.
     document.addEventListener('DOMContentLoaded', () => {

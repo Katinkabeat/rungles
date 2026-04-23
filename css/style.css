@@ -904,7 +904,62 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 }
 
 /* Menu back button on solo / match top bar. */
-.mode-topbar { padding: 8px 16px 0; }
+.mode-topbar {
+  padding: 8px 16px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.solo-stats-btn {
+  background: none;
+  border: none;
+  padding: 4px 10px;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.solo-stats-btn:hover, .solo-stats-btn:focus-visible { background: var(--border); }
+
+/* Personal stats modal. */
+.stats-card { min-width: 280px; }
+.stats-loading { color: var(--ink-soft); text-align: center; margin: 24px 0; }
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.stats-row:last-child { border-bottom: none; }
+.stats-label { color: var(--ink-soft); font-size: 0.9rem; }
+.stats-value { font-weight: 700; }
+.stats-section-title {
+  margin: 16px 0 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stats-recent-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 0.88rem;
+}
+.stats-recent-date { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.stats-recent-score { font-weight: 700; }
+.stats-recent-badge { margin-left: 4px; font-size: 0.78rem; }
+.stats-empty {
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 12px 0;
+  font-size: 0.9rem;
+}
+
 .menu-back {
   background: none;
   border: none;
