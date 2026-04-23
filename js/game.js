@@ -739,9 +739,25 @@ function handleShuffle() {
 
 async function openStatsModal() {
   const modal = document.querySelector('.stats-modal');
-  const body = modal.querySelector('.stats-body');
-  body.innerHTML = '<p class="stats-loading">Loading…</p>';
   modal.showModal();
+  switchStatsTab('me');
+  renderMyStats();
+  renderLeaderboard();
+}
+
+function switchStatsTab(which) {
+  document.querySelectorAll('.stats-tab').forEach(t => {
+    const active = t.dataset.tab === which;
+    t.classList.toggle('stats-tab-active', active);
+    t.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelector('.stats-body-me')?.classList.toggle('hidden', which !== 'me');
+  document.querySelector('.stats-body-board')?.classList.toggle('hidden', which !== 'board');
+}
+
+async function renderMyStats() {
+  const body = document.querySelector('.stats-body-me');
+  body.innerHTML = '<p class="stats-loading">Loading…</p>';
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -827,6 +843,141 @@ async function openStatsModal() {
   }
 }
 
+// Monday 00:00 local time of the current week (so "this week" resets on Mon).
+function startOfThisWeek() {
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun, 1=Mon, ...
+  const daysSinceMon = (dow + 6) % 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - daysSinceMon);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+async function renderLeaderboard() {
+  const body = document.querySelector('.stats-body-board');
+  body.innerHTML = '<p class="stats-loading">Loading…</p>';
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    body.innerHTML = '<p class="stats-empty">Sign in to see the leaderboard.</p>';
+    return;
+  }
+
+  const weekStart = startOfThisWeek().toISOString();
+  const [allTimeRes, weekRes, bestRungRes] = await Promise.all([
+    supabase
+      .from('rg_solo_games')
+      .select('user_id, total_score, played_at')
+      .order('total_score', { ascending: false })
+      .limit(10),
+    supabase
+      .from('rg_solo_games')
+      .select('user_id, total_score, played_at')
+      .gte('played_at', weekStart)
+      .order('total_score', { ascending: false })
+      .limit(10),
+    supabase
+      .from('rg_solo_games')
+      .select('user_id, best_word, best_rung_score, played_at')
+      .not('best_rung_score', 'is', null)
+      .order('best_rung_score', { ascending: false })
+      .limit(1),
+  ]);
+
+  if (allTimeRes.error) {
+    body.innerHTML = `<p class="stats-empty">Couldn't load leaderboard: ${allTimeRes.error.message}</p>`;
+    return;
+  }
+
+  const allTime = allTimeRes.data ?? [];
+  const thisWeek = weekRes.data ?? [];
+  const bestRung = (bestRungRes.data ?? [])[0] ?? null;
+
+  // Fetch usernames for all user_ids referenced.
+  const ids = new Set();
+  allTime.forEach(r => ids.add(r.user_id));
+  thisWeek.forEach(r => ids.add(r.user_id));
+  if (bestRung) ids.add(bestRung.user_id);
+  let nameById = {};
+  if (ids.size) {
+    const { data: profiles } = await supabase
+      .from('profiles').select('id, username').in('id', [...ids]);
+    nameById = Object.fromEntries((profiles ?? []).map(p => [p.id, p.username]));
+  }
+
+  body.innerHTML = '';
+
+  if (allTime.length === 0) {
+    body.innerHTML = '<p class="stats-empty">No games played yet.</p>';
+    return;
+  }
+
+  appendBoardSection(body, '🏆 All-time top 10', allTime, nameById, user.id);
+  appendBoardSection(
+    body,
+    '📅 This week',
+    thisWeek,
+    nameById,
+    user.id,
+    'No games this week yet — be the first!'
+  );
+
+  if (bestRung) {
+    const title = document.createElement('h3');
+    title.className = 'stats-section-title';
+    title.textContent = '🎯 Best single rung ever';
+    body.append(title);
+    const row = document.createElement('div');
+    row.className = 'stats-single-rung';
+    const left = document.createElement('span');
+    const nameEl = document.createElement('strong');
+    nameEl.textContent = nameById[bestRung.user_id] ?? '…';
+    if (bestRung.user_id === user.id) nameEl.classList.add('stats-board-name-me');
+    left.append(nameEl, document.createTextNode(` · ${bestRung.best_word}`));
+    const right = document.createElement('span');
+    right.className = 'stats-board-score';
+    right.textContent = `+${bestRung.best_rung_score}`;
+    row.append(left, right);
+    body.append(row);
+  }
+}
+
+function appendBoardSection(body, title, rows, nameById, myId, emptyMessage) {
+  const section = document.createElement('div');
+  section.className = 'stats-board-section';
+  const h = document.createElement('h3');
+  h.className = 'stats-section-title';
+  h.textContent = title;
+  section.append(h);
+  if (rows.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'stats-empty';
+    p.textContent = emptyMessage ?? 'No games yet.';
+    section.append(p);
+  } else {
+    rows.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'stats-board-row';
+      const left = document.createElement('span');
+      const rank = document.createElement('span');
+      rank.className = 'stats-board-rank';
+      rank.textContent = `${i + 1}.`;
+      const name = document.createElement('span');
+      name.className = 'stats-board-name';
+      if (r.user_id === myId) name.classList.add('stats-board-name-me');
+      name.textContent = nameById[r.user_id] ?? '…';
+      left.append(rank, document.createTextNode(' '), name);
+      const right = document.createElement('span');
+      right.className = 'stats-board-score';
+      right.textContent = r.total_score;
+      row.append(left, right);
+      section.append(row);
+    });
+  }
+  body.append(section);
+}
+
 function formatPlayedAt(iso) {
   const d = new Date(iso);
   const now = new Date();
@@ -902,6 +1053,9 @@ document.addEventListener('DOMContentLoaded', () => {
   solo?.querySelector('.solo-stats-btn')?.addEventListener('click', openStatsModal);
   document.querySelector('.stats-close')?.addEventListener('click', () => {
     document.querySelector('.stats-modal')?.close();
+  });
+  document.querySelectorAll('.stats-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchStatsTab(tab.dataset.tab));
   });
   solo?.querySelector('.btn-newgame')?.addEventListener('click', () => {
     document.querySelector('.endgame-modal')?.close();

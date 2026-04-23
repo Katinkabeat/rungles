@@ -324,8 +324,15 @@
 
   <dialog class="stats-modal" aria-label="Solo stats">
     <div class="modal-card stats-card">
-      <h2 class="modal-title">Your stats</h2>
-      <div class="stats-body">
+      <h2 class="modal-title">Stats</h2>
+      <div class="stats-tabs" role="tablist">
+        <button class="stats-tab stats-tab-active" data-tab="me" type="button" role="tab" aria-selected="true">Me</button>
+        <button class="stats-tab" data-tab="board" type="button" role="tab" aria-selected="false">Leaderboard</button>
+      </div>
+      <div class="stats-body stats-body-me">
+        <p class="stats-loading">Loading…</p>
+      </div>
+      <div class="stats-body stats-body-board hidden">
         <p class="stats-loading">Loading…</p>
       </div>
       <button class="btn btn-primary modal-dismiss stats-close" type="button">Close</button>
@@ -342,12 +349,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=27"></script>
+  <script type="module" src="js/game.js?v=28"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=27';
+    import { initMultiplayer } from './js/multiplayer.js?v=28';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=27"></script>
+  <script src="js/sw-update.js?v=28"></script>
   <script>
     // Dark mode toggle + settings dropdown wiring.
     document.addEventListener('DOMContentLoaded', () => {
