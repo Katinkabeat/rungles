@@ -100,29 +100,28 @@ html, body {
   font-weight: 600;
 }
 
-.header-actions { display: flex; gap: 8px; }
+.header-actions { display: flex; gap: 12px; align-items: center; }
 
 .icon-btn {
   background: none;
   border: none;
-  font-size: 1.1rem;
+  font-size: 1.5rem;
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: var(--radius);
+  padding: 0;
   text-decoration: none;
   color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  transition: transform 0.15s ease;
 }
-.icon-btn:hover, .icon-btn:focus-visible { background: var(--border); }
-
-.mode-topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.icon-btn:hover, .icon-btn:focus-visible {
+  background: none;
+  transform: scale(1.1);
+  outline: none;
 }
+.settings-toggle { font-size: 1.125rem; }
 
 /* Brand (logo + title) */
 .app-brand { display: flex; align-items: center; gap: 10px; }
@@ -146,13 +145,13 @@ html, body {
 /* Avatar button + dropdown */
 .avatar-wrap { position: relative; }
 .avatar-btn {
-  width: 36px; height: 36px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   border: 2px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
   font-family: 'Fredoka One', cursive;
   color: white;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   display: inline-flex; align-items: center; justify-content: center;
   padding: 0;
   line-height: 1;
@@ -189,6 +188,7 @@ html, body {
   font-family: 'Fredoka One', cursive;
   font-size: 0.85rem;
   flex-shrink: 0;
+  border: 2px solid rgba(0, 0, 0, 0.06);
 }
 .avatar-dropdown-identity { min-width: 0; }
 .avatar-dropdown-name {
