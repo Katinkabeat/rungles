@@ -737,7 +737,7 @@ function handleShuffle() {
 
 // ---------- stats modal ----------
 
-async function openStatsModal() {
+export async function openStatsModal() {
   const modal = document.querySelector('.stats-modal');
   modal.showModal();
   switchStatsTab('me');

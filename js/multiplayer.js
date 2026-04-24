@@ -4,6 +4,7 @@
 import { supabase } from './supabase-client.js';
 import { startMatch, stopMatch } from './match.js';
 import { initNotificationBanner, resyncPushSubscription } from './notifications.js';
+import { openStatsModal } from './game.js';
 
 const els = {
   authGate:   () => document.querySelector('.auth-gate'),
@@ -218,7 +219,7 @@ function wireAvatar() {
 
   statsBtn?.addEventListener('click', () => {
     closeAvatar();
-    document.querySelector('.solo-stats-btn')?.click();
+    openStatsModal().catch(err => console.error(err));
   });
 }
 
