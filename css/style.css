@@ -109,8 +109,20 @@ html, body {
   cursor: pointer;
   padding: 6px 8px;
   border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 .icon-btn:hover, .icon-btn:focus-visible { background: var(--border); }
+
+.mode-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 /* Game info */
 .game-info {
