@@ -124,6 +124,117 @@ html, body {
   gap: 8px;
 }
 
+/* Brand (logo + title) */
+.app-brand { display: flex; align-items: center; gap: 10px; }
+.app-logo {
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ec4899, #7e22ce);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.3rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.app-title.font-display {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+/* Avatar button + dropdown */
+.avatar-wrap { position: relative; }
+.avatar-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  font-family: 'Fredoka One', cursive;
+  color: white;
+  font-size: 0.85rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.avatar-btn:hover, .avatar-btn:focus-visible { filter: brightness(1.08); outline: none; }
+.avatar-initials { line-height: 1; letter-spacing: 0.02em; }
+
+.avatar-dropdown {
+  position: absolute;
+  right: 0; top: calc(100% + 6px);
+  z-index: 50;
+  width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  padding: 4px 0;
+  animation: avatar-slide 0.12s ease-out;
+}
+@keyframes avatar-slide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.avatar-dropdown-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.avatar-preview {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: white;
+  font-family: 'Fredoka One', cursive;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.avatar-dropdown-identity { min-width: 0; }
+.avatar-dropdown-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.avatar-dropdown-sub { font-size: 0.72rem; opacity: 0.6; }
+.avatar-dropdown-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.avatar-section-label {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+  opacity: 0.6; margin-bottom: 8px;
+}
+.hue-picker {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.hue-swatch {
+  width: 100%; aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.hue-swatch.selected { border-color: currentColor; transform: scale(1.05); }
+
+.avatar-dropdown-item {
+  display: block; width: 100%;
+  padding: 10px 14px;
+  background: none; border: none;
+  text-align: left;
+  font-size: 0.9rem;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+}
+.avatar-dropdown-item:hover, .avatar-dropdown-item:focus-visible {
+  background: var(--border);
+  outline: none;
+}
+
 /* Game info */
 .game-info {
   display: flex;

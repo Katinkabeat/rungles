@@ -71,7 +71,7 @@ function render() {
   const authed = !!state.session;
 
   els.authGate().classList.toggle('hidden', authed);
-  els.userBar().classList.toggle('hidden', !authed);
+  document.querySelectorAll('.authed-only').forEach(el => el.classList.toggle('hidden', !authed));
   document.querySelectorAll('.anon-only').forEach(el => el.classList.toggle('hidden', authed));
 
   els.landing().classList.toggle('hidden', !authed || state.view !== 'menu');
@@ -113,17 +113,113 @@ async function loadProfile() {
   if (!state.session) return;
   const { data } = await supabase
     .from('profiles')
-    .select('username')
+    .select('username, avatar_hue')
     .eq('id', state.session.user.id)
     .maybeSingle();
-  state.profile = data ?? { username: state.session.user.email };
+  state.profile = data
+    ? { ...data, avatar_hue: data.avatar_hue ?? 270 }
+    : { username: state.session.user.email, avatar_hue: 270 };
   if (els.authUser()) els.authUser().textContent = state.profile.username;
+  updateAvatar();
 
   // Push notifications: re-sync existing sub + render banner. Fire-and-forget
   // so it never blocks the lobby from rendering.
   const uid = state.session.user.id;
   resyncPushSubscription(uid).catch(() => {});
   initNotificationBanner(uid).catch(() => {});
+}
+
+// ---------- avatar ----------
+
+const AVATAR_HUES = [270, 330, 190, 30, 160, 10];
+
+function getInitials(name) {
+  return (name || '?').slice(0, 2).toUpperCase();
+}
+
+function updateAvatar() {
+  const hue = state.profile?.avatar_hue ?? 270;
+  const name = state.profile?.username ?? '…';
+  const initials = getInitials(name);
+  const bg = `hsl(${hue}, 70%, 55%)`;
+
+  const btn = document.querySelector('.avatar-btn');
+  if (btn) btn.style.background = bg;
+  const ini = document.querySelector('.avatar-initials');
+  if (ini) ini.textContent = initials;
+  const preview = document.querySelector('.avatar-preview');
+  if (preview) { preview.style.background = bg; preview.textContent = initials; }
+  const nameLabel = document.querySelector('.avatar-dropdown-name');
+  if (nameLabel) nameLabel.textContent = name;
+  updateHuePickerSelection();
+}
+
+function updateHuePickerSelection() {
+  const current = state.profile?.avatar_hue ?? 270;
+  document.querySelectorAll('.hue-swatch').forEach(b => {
+    b.classList.toggle('selected', Number(b.dataset.hue) === current);
+  });
+}
+
+function wireAvatar() {
+  const wrap = document.querySelector('.avatar-wrap');
+  const btn = wrap?.querySelector('.avatar-btn');
+  const menu = wrap?.querySelector('.avatar-dropdown');
+  const picker = wrap?.querySelector('.hue-picker');
+  const statsBtn = wrap?.querySelector('.avatar-stats-btn');
+  const settingsWrap = document.querySelector('.settings-wrap');
+  const settingsMenu = settingsWrap?.querySelector('.settings-dropdown');
+  const settingsToggle = settingsWrap?.querySelector('.settings-toggle');
+  if (!wrap || !btn || !menu || !picker) return;
+
+  picker.innerHTML = AVATAR_HUES.map(h =>
+    `<button class="hue-swatch" type="button" data-hue="${h}" style="background: hsl(${h}, 70%, 55%)" aria-label="Hue ${h}"></button>`
+  ).join('');
+  updateHuePickerSelection();
+
+  const closeAvatar = () => {
+    menu.classList.add('hidden');
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  const openAvatar = () => {
+    menu.classList.remove('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+    // Close settings if open
+    settingsMenu?.classList.add('hidden');
+    settingsToggle?.setAttribute('aria-expanded', 'false');
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.contains('hidden') ? openAvatar() : closeAvatar();
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) closeAvatar();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAvatar();
+  });
+
+  picker.addEventListener('click', async (e) => {
+    const swatch = e.target.closest('.hue-swatch');
+    if (!swatch || !state.session) return;
+    const hue = Number(swatch.dataset.hue);
+    const prev = state.profile?.avatar_hue ?? 270;
+    state.profile.avatar_hue = hue;
+    updateAvatar();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_hue: hue })
+      .eq('id', state.session.user.id);
+    if (error) {
+      state.profile.avatar_hue = prev;
+      updateAvatar();
+    }
+  });
+
+  statsBtn?.addEventListener('click', () => {
+    closeAvatar();
+    document.querySelector('.solo-stats-btn')?.click();
+  });
 }
 
 async function handleSignIn(e) {
@@ -397,6 +493,9 @@ export async function initMultiplayer() {
   // Lobby + waiting room buttons.
   els.lobbyCreate().addEventListener('click', handleCreate);
   els.waitingLeave().addEventListener('click', leaveWaitingRoom);
+
+  // Wire up avatar button + hue picker + stats link.
+  wireAvatar();
 
   // Render the CAPTCHA widget into the form.
   mountTurnstile();
