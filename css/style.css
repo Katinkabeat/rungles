@@ -53,31 +53,34 @@ html, body {
   font-family: 'Nunito', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.4;
-  /* Let the page scroll when content exceeds viewport so sticky-bottom
-     actions pin to the actual visible viewport (Wordy pattern). */
-  min-height: 100dvh;
+  /* Lock the document to exactly the viewport so the page itself never
+     scrolls. Any scroll-when-tall behavior happens INSIDE the mode
+     containers (.solo-mode, .multi-mode, .landing). */
+  height: 100%;
+  overflow: hidden;
 }
 
 .app {
   max-width: 480px;
   margin: 0 auto;
-  /* min-height (not fixed height) + no overflow:hidden lets the page scroll
-     naturally when content exceeds the viewport. That's what makes the
-     sticky-bottom action bar work on phones where content is too tall —
-     same pattern Wordy uses. */
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Exact viewport height; no body scroll. Inner mode containers handle
+     overflow internally with their own overflow-y: auto. */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-/* Solo mode: flex column. With flex: 1 0 auto and the parent .app's
-   min-height: 100dvh, this fills the remaining viewport on short content
-   and grows with content on overflow. Sticky bottom action bar pins to
-   viewport bottom (or scroll-container bottom) regardless. */
+/* Solo mode: fills the space below the header. With flex: 1 1 0 and
+   min-height: 0, it adapts to whatever space is available without
+   relying on a hardcoded header height. overflow-y: auto handles
+   genuinely-tall content (full ladder, etc.) by scrolling internally —
+   the page itself never scrolls. .actions still pins to bottom via its
+   own sticky bottom: 0. */
 .solo-mode {
-  flex: 1 0 auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -880,7 +883,7 @@ dialog::backdrop {
 
 /* Slightly wider screens */
 @media (min-width: 520px) {
-  .app { margin-top: 16px; border-radius: 12px; min-height: calc(100vh - 32px); }
+  .app { margin-top: 16px; border-radius: 12px; height: calc(100dvh - 32px); }
 }
 
 
@@ -963,6 +966,9 @@ html.dark .settings-dropdown {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* Fill space below header, scroll internally if cards overflow. */
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
 }
 .card {
@@ -1151,9 +1157,11 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  /* flex: 1 0 auto + parent .app min-height: 100dvh fills the viewport
-     on short content; container grows with content on overflow. */
-  flex: 1 0 auto;
+  /* Same pattern as .solo-mode: fill available space, scroll internally
+     if content overflows, no body scroll. */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .multi-h2 {
