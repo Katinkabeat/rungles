@@ -72,13 +72,17 @@ html, body {
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-/* Solo mode: flex column. With flex: 1 0 auto and the parent .app's
-   min-height: 100dvh, this fills the remaining viewport on short content
-   and grows with content on overflow — no fragile header-height calc. */
+/* Solo mode: flex column whose height is AT LEAST the remaining viewport
+   below the header. On short content the ladder (flex:1 1 0) grows to push
+   actions to the bottom. On tall content the container grows with content
+   and the page scrolls — sticky actions always pin to the viewport bottom. */
 .solo-mode {
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
+  /* Header is ~61px; subtract so the solo area + header together equal
+     the viewport height on first paint. */
+  min-height: calc(100dvh - 61px);
 }
 
 /* Header */
@@ -957,11 +961,6 @@ html.dark .settings-dropdown {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  /* Fill remaining flex space (parent .app is min-height: 100dvh). On short
-     content the cards sit at the top; on tall content this scrolls
-     internally so the page itself doesn't need a scrollbar. */
-  flex: 1 1 0;
-  min-height: 0;
   overflow-y: auto;
 }
 .card {
@@ -1150,9 +1149,8 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  /* flex: 1 0 auto + parent .app min-height: 100dvh fills the viewport
-     on short content; container grows with content on overflow. */
   flex: 1 0 auto;
+  min-height: calc(100dvh - 61px);
 }
 
 .multi-h2 {
