@@ -22,36 +22,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Tries the SideQuest hub subscription first (so users who enabled
+// notifications in SideQuest get a single consolidated notification),
+// falls back to the user's Rungles-specific subscription otherwise.
 async function sendPushToUser(
   supabase: any,
   userId: string,
-  payload: { title: string; body: string; tag: string; url: string }
-): Promise<{ sent: boolean; reason?: string }> {
-  const { data: sub, error: subErr } = await supabase
-    .from('push_subscriptions')
-    .select('endpoint, keys_p256dh, keys_auth')
-    .eq('user_id', userId)
-    .eq('app', 'rungles')
-    .single()
+  payload: { title: string; body: string; tag: string; url: string; icon?: string }
+): Promise<{ sent: boolean; reason?: string; via?: string }> {
+  const apps = ['sidequest', 'rungles']
 
-  if (subErr || !sub) return { sent: false, reason: 'no push subscription' }
+  for (const app of apps) {
+    const { data: sub } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, keys_p256dh, keys_auth')
+      .eq('user_id', userId)
+      .eq('app', app)
+      .maybeSingle()
 
-  const pushSubscription = {
-    endpoint: sub.endpoint,
-    keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
-  }
+    if (!sub) continue
 
-  try {
-    await webpush.sendNotification(pushSubscription, JSON.stringify(payload), { TTL: 86400 })
-    return { sent: true }
-  } catch (pushErr: any) {
-    if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-      // Expired — clean up so we don't keep trying.
-      await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('app', 'rungles')
-      return { sent: false, reason: 'expired subscription removed' }
+    const pushSubscription = {
+      endpoint: sub.endpoint,
+      keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
     }
-    throw pushErr
+
+    try {
+      await webpush.sendNotification(pushSubscription, JSON.stringify(payload), { TTL: 86400 })
+      return { sent: true, via: app }
+    } catch (pushErr: any) {
+      if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+        await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('app', app)
+        // Fall through to the next app (fallback)
+        continue
+      }
+      throw pushErr
+    }
   }
+
+  return { sent: false, reason: 'no push subscription' }
 }
 
 serve(async (req: Request) => {
@@ -112,6 +121,7 @@ serve(async (req: Request) => {
       body: `${moverName} played. Your move! 🪜`,
       tag: `rungles-turn-${gameId}`,
       url: `/rungles/?game=${gameId}`,
+      icon: '/rungles/favicon.svg',
     })
 
     return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
