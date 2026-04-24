@@ -128,7 +128,7 @@ html, body {
 .app-logo {
   width: 36px; height: 36px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #ec4899, #7e22ce);
+  background: #9333ea;
   color: white;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Fredoka One', cursive;
@@ -1243,7 +1243,13 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 .lobby-creator { font-weight: 600; color: var(--ink); font-size: 14px; }
 .lobby-detail { font-size: 12px; }
 .lobby-time { font-size: 11px; opacity: 0.7; }
-.lobby-action { padding: 6px 14px; font-size: 14px; }
+.lobby-action {
+  flex: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 80px;
+}
 
 .waiting-room {
   text-align: center;
