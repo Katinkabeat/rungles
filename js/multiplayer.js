@@ -3,7 +3,10 @@
 
 import { supabase } from './supabase-client.js';
 import { startMatch, stopMatch } from './match.js';
-import { initNotificationBanner, resyncPushSubscription } from './notifications.js';
+// Push notification opt-in moved to the SideQuest hub
+// (rae-side-quest/src/lib/pushNotifications.js). Rungles no longer renders
+// its own notification banner — friends are auto-migrated to the unified
+// SideQuest subscription on their next hub visit.
 import { openStatsModal } from './game.js';
 
 const els = {
@@ -123,11 +126,7 @@ async function loadProfile() {
   if (els.authUser()) els.authUser().textContent = state.profile.username;
   updateAvatar();
 
-  // Push notifications: re-sync existing sub + render banner. Fire-and-forget
-  // so it never blocks the lobby from rendering.
-  const uid = state.session.user.id;
-  resyncPushSubscription(uid).catch(() => {});
-  initNotificationBanner(uid).catch(() => {});
+  // Push notification opt-in is handled by the SideQuest hub, not here.
 }
 
 // ---------- avatar ----------
