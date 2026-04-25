@@ -481,12 +481,25 @@ async function handleDeepLink() {
 
 // ---------- boot ----------
 
+// Only redirect to the SQ hub login when we're actually deployed alongside it.
+// Local dev (running this app standalone) keeps the in-app auth gate working.
+function shouldRedirectToHub() {
+  return window.location.hostname === 'katinkabeat.github.io';
+}
+
+function redirectToSqLogin() {
+  const ret = window.location.pathname + window.location.search;
+  const url = `${window.location.origin}/games/?return=${encodeURIComponent(ret)}`;
+  window.location.replace(url);
+}
+
 export async function initMultiplayer() {
   // Wire up menu / back buttons.
   els.playSolo().addEventListener('click', startSolo);
   els.soloBack().addEventListener('click', goToMenu);
 
-  // Wire up auth form / logout.
+  // Wire up auth form / logout. (The auth form is only reachable in dev; in
+  // production the unauthed redirect below sends users to the SQ hub.)
   els.authForm().addEventListener('submit', handleSignIn);
   els.authLogout().addEventListener('click', handleLogout);
 
@@ -497,17 +510,23 @@ export async function initMultiplayer() {
   // Wire up avatar button + hue picker + stats link.
   wireAvatar();
 
-  // Render the CAPTCHA widget into the form.
+  // Render the CAPTCHA widget (only used by the in-app form in dev).
   mountTurnstile();
 
-  // Pick up an existing session (e.g. from a previous Wordy login on this origin).
-  // Cross-origin needs a separate sign-in.
+  // Pick up an existing session (e.g. from a previous SQ hub login on this
+  // origin). Phase 1: unauthed users in production are routed to the SQ hub
+  // login instead of seeing Rungles' own auth gate.
   const { data } = await supabase.auth.getSession();
+  if (!data.session && shouldRedirectToHub()) {
+    redirectToSqLogin();
+    return;
+  }
   if (data.session) {
     state.session = data.session;
     await loadProfile();
     subscribeLobby();
   }
+
   // Deep-link: push notifications carry ?game=<id> so tapping one drops you
   // straight into that match (if you're authed and in it).
   await handleDeepLink();
@@ -525,6 +544,12 @@ export async function initMultiplayer() {
   delete document.documentElement.dataset.prepaint;
 
   supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session && shouldRedirectToHub()) {
+      // Logout (or session loss) in production bounces the user to the SQ hub
+      // login. The ?return= param brings them back here on re-authentication.
+      redirectToSqLogin();
+      return;
+    }
     state.session = session;
     if (!session) {
       state.profile = null;
