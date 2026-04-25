@@ -273,14 +273,15 @@
       <h2 class="modal-title">How to Play Rungles</h2>
 
       <h3 class="rules-h3">The goal</h3>
-      <p>Build a ladder of connected words. Each word is a "rung." The solo game is 7 rungs; multiplayer is 10.</p>
+      <p>Build a ladder of connected words. Each word is a "rung." Solo is 7 rungs; multiplayer is 10 (5 each).</p>
 
       <h3 class="rules-h3">Each rung</h3>
       <ul class="rules-list">
-        <li>You have a rack of 7 letter tiles (standard Scrabble distribution).</li>
+        <li>You have a rack of 7 letter tiles drawn from a Scrabble-style bag.</li>
         <li>Your word must be <strong>4 to 7 letters</strong> and in the dictionary.</li>
-        <li><strong>Rung 1:</strong> use any letters from your rack.</li>
-        <li><strong>Rung 2 and onward:</strong> your word must use at least <strong>3 letters</strong> from the previous word. These "carried" letters are shown in teal and are free — they don't consume your rack tiles.</li>
+        <li>Every rung after the first must use at least <strong>3 letters</strong> carried from the previous word. Carried letters are shown in gray and are free — they don't consume your rack tiles.</li>
+        <li><strong>Solo rung 1:</strong> no carryover, pick any valid word from your rack.</li>
+        <li><strong>Multiplayer rung 1:</strong> the game gives you a seed word, and rung 1 must carry 3+ letters from it just like every other rung.</li>
         <li>Your rack refills back to 7 tiles after every rung.</li>
       </ul>
 
@@ -296,8 +297,8 @@
 
       <h3 class="rules-h3">Tiles</h3>
       <ul class="rules-list">
-        <li><strong>Blanks</strong> are wildcards. Pick any letter the first time you play one — it's locked to that letter forever.</li>
-        <li>The opening rack is always playable (at least one valid word exists).</li>
+        <li><strong>Blanks (solo only):</strong> wildcards worth 0 points. Each time you drop a blank into a slot, you pick the letter it plays as for that placement. Move it back to the rack and place it again to pick a different letter. Multiplayer bags don't include blanks.</li>
+        <li>The solo opening rack is always playable (at least one valid word exists).</li>
       </ul>
 
       <h3 class="rules-h3">Placing tiles</h3>
@@ -306,7 +307,7 @@
         <li><strong>Tap a tile in your rack or carried row</strong> to pick it up (it lifts and glows).</li>
         <li><strong>Tap any slot in the word area</strong> to drop the tile into that slot.</li>
         <li>If the slot is already filled, the new tile takes its place and the old one goes back to the rack.</li>
-        <li><strong>Tap a filled slot with nothing selected</strong> to send that tile back to the rack — the slot becomes empty until you fill it.</li>
+        <li><strong>Tap a filled slot with nothing selected</strong> to send that tile back to its source (rack or carried row). The slot becomes empty until you fill it.</li>
         <li><strong>Tap two rack tiles in sequence</strong> to rearrange your rack (the first jumps to the left of the second).</li>
         <li><strong>Tap the same tile twice</strong> to deselect.</li>
         <li>You can't submit a word with an empty slot in the middle — fill every slot up to the length of your word first.</li>
@@ -317,19 +318,22 @@
         <li><strong>Submit:</strong> play your word.</li>
         <li><strong>Clear:</strong> empty the word area.</li>
         <li><strong>Shuffle:</strong> reorder the rack randomly.</li>
-        <li><strong>💡 Hint (−5):</strong> reveal one word you could play. Score can go negative.</li>
-        <li><strong>Give Up:</strong> end the game. Double-click to confirm.</li>
+        <li><strong>💡 Hint (−5 pts, solo only):</strong> reveal one word you could play. Score can go negative.</li>
+        <li><strong>Skip (multiplayer only):</strong> pass your turn if you can't find a word; the other player keeps going.</li>
+        <li><strong>Give Up:</strong> end the game. Tap twice to confirm.</li>
       </ul>
 
-      <h3 class="rules-h3">Keyboard</h3>
-      <p>Type a letter to pick it (carried first, then rack). <kbd>Backspace</kbd> removes the last tile. <kbd>Enter</kbd> submits. <kbd>Escape</kbd> clears.</p>
+      <h3 class="rules-h3">Keyboard (solo)</h3>
+      <p>Type a letter to pick it (carried first, then rack). <kbd>Backspace</kbd> removes the last tile. <kbd>Enter</kbd> submits. <kbd>Escape</kbd> deselects, or clears the word area if nothing is selected.</p>
 
-      <h3 class="rules-h3">Multiplayer (when it's live)</h3>
+      <h3 class="rules-h3">Multiplayer</h3>
       <ul class="rules-list">
-        <li>Two players share one ladder. Each has their own rack (hidden from the other); the tile bag is shared.</li>
-        <li>You take turns adding rungs — 10 total, 5 each.</li>
+        <li>Two players share one ladder. Each has a private rack (hidden from the other); the tile bag is shared.</li>
+        <li>The game starts with a randomly chosen <strong>seed word</strong>. Rung 1 must carry 3+ letters from it, just like every rung after.</li>
+        <li>Players take turns adding rungs: 10 total, 5 each.</li>
         <li>Only your own rung scores count toward your total.</li>
-        <li>If you can't form a valid word, you can <strong>Skip</strong>; the other player keeps going.</li>
+        <li>Use <strong>Skip</strong> if you can't form a valid word; play continues without you.</li>
+        <li>The ladder shows the most recent rung; tap it to see the full history including the seed.</li>
       </ul>
 
       <button class="btn btn-primary btn-rules-close" type="button">Got it</button>
