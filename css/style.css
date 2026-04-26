@@ -615,6 +615,12 @@ dialog {
   width: calc(100% - 32px);
   color: var(--ink);
 }
+/* Dialogs follow the same "lighter than surface + brighter border"
+   pattern as the dropdowns so they read as floating overlays. */
+html.dark dialog {
+  background: #241640;
+  border: 1px solid #6d28d9;
+}
 dialog::backdrop {
   background: rgba(40, 40, 40, 0.5);
   backdrop-filter: blur(3px);
