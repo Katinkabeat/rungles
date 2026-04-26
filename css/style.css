@@ -932,6 +932,7 @@ html.dark .avatar-dropdown {
   /* Lighter than --surface so the dropdown reads as floating above
      the page surface (cards) instead of blending into them. */
   background: #241640;
+  border-color: #6d28d9;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 .settings-row {
