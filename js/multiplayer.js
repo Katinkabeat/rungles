@@ -102,8 +102,6 @@ async function loadProfile() {
 
 // ---------- avatar ----------
 
-const AVATAR_HUES = [270, 330, 190, 30, 160, 10];
-
 function getInitials(name) {
   return (name || '?').slice(0, 2).toUpperCase();
 }
@@ -122,31 +120,17 @@ function updateAvatar() {
   if (preview) { preview.style.background = bg; preview.textContent = initials; }
   const nameLabel = document.querySelector('.avatar-dropdown-name');
   if (nameLabel) nameLabel.textContent = name;
-  updateHuePickerSelection();
-}
-
-function updateHuePickerSelection() {
-  const current = state.profile?.avatar_hue ?? 270;
-  document.querySelectorAll('.hue-swatch').forEach(b => {
-    b.classList.toggle('selected', Number(b.dataset.hue) === current);
-  });
 }
 
 function wireAvatar() {
   const wrap = document.querySelector('.avatar-wrap');
   const btn = wrap?.querySelector('.avatar-btn');
   const menu = wrap?.querySelector('.avatar-dropdown');
-  const picker = wrap?.querySelector('.hue-picker');
   const statsBtn = wrap?.querySelector('.avatar-stats-btn');
   const settingsWrap = document.querySelector('.settings-wrap');
   const settingsMenu = settingsWrap?.querySelector('.settings-dropdown');
   const settingsToggle = settingsWrap?.querySelector('.settings-toggle');
-  if (!wrap || !btn || !menu || !picker) return;
-
-  picker.innerHTML = AVATAR_HUES.map(h =>
-    `<button class="hue-swatch" type="button" data-hue="${h}" style="background: hsl(${h}, 70%, 55%)" aria-label="Hue ${h}"></button>`
-  ).join('');
-  updateHuePickerSelection();
+  if (!wrap || !btn || !menu) return;
 
   const closeAvatar = () => {
     menu.classList.add('hidden');
@@ -168,23 +152,6 @@ function wireAvatar() {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeAvatar();
-  });
-
-  picker.addEventListener('click', async (e) => {
-    const swatch = e.target.closest('.hue-swatch');
-    if (!swatch || !state.session) return;
-    const hue = Number(swatch.dataset.hue);
-    const prev = state.profile?.avatar_hue ?? 270;
-    state.profile.avatar_hue = hue;
-    updateAvatar();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ avatar_hue: hue })
-      .eq('id', state.session.user.id);
-    if (error) {
-      state.profile.avatar_hue = prev;
-      updateAvatar();
-    }
   });
 
   statsBtn?.addEventListener('click', () => {
@@ -545,7 +512,7 @@ export async function initMultiplayer() {
   els.lobbyCreate().addEventListener('click', handleCreate);
   els.waitingLeave().addEventListener('click', leaveWaitingRoom);
 
-  // Wire up avatar button + hue picker + stats link.
+  // Wire up avatar button + stats link.
   wireAvatar();
 
   await loadProfile();
