@@ -167,7 +167,7 @@ html, body {
 
 .avatar-dropdown {
   position: absolute;
-  right: 0; top: calc(100% + 6px);
+  left: 0; top: calc(100% + 6px);
   z-index: 50;
   width: 240px;
   background: var(--surface);
@@ -927,7 +927,11 @@ html[data-prepaint="authed"] .anon-only    { display: none !important; }
   padding: 4px 0;
   animation: settings-slide 0.12s ease-out;
 }
-html.dark .settings-dropdown {
+html.dark .settings-dropdown,
+html.dark .avatar-dropdown {
+  /* Lighter than --surface so the dropdown reads as floating above
+     the page surface (cards) instead of blending into them. */
+  background: #241640;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 .settings-row {
