@@ -328,9 +328,12 @@ function renderLobby(games, usernameById = {}) {
     const meta = document.createElement('div');
     meta.className = 'lobby-meta';
     meta.append(chips);
+    // For active games, "X ago" reflects when the current turn started
+    // (i.e. the last move). Waiting games fall back to game creation time.
+    const sinceIso = g.turn_started_at ?? g.created_at;
     const sub = document.createElement('span');
     sub.className = 'lobby-detail';
-    sub.textContent = `${g.total_rungs} rungs · ${timeAgo(g.created_at)}`;
+    sub.textContent = `${g.total_rungs} rungs · ${timeAgo(sinceIso)}`;
     meta.append(sub);
 
     const action = document.createElement('button');
