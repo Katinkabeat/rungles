@@ -3,7 +3,7 @@
 // are redirected there on boot. The username/logout helpers below assume a
 // session is always present by the time render() runs.
 
-import { supabase } from './supabase-client.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase-client.js';
 import { startMatch, stopMatch } from './match.js';
 // Push notification opt-in lives in the SideQuest hub
 // (rae-side-quest/src/lib/pushNotifications.js). Rungles no longer renders
@@ -213,6 +213,7 @@ async function refreshLobby() {
     .from('rg_games')
     .select(`
       id, status, created_at, total_rungs, max_players,
+      current_player_idx, turn_started_at, last_nudged_at,
       rg_players ( user_id, player_idx )
     `)
     .in('status', ['waiting', 'active'])
@@ -251,6 +252,11 @@ async function refreshLobby() {
   renderLobby(visible, usernameById);
 }
 
+// Nudge cooldown: same as Wordy. Off-turn opponent can ping the current
+// player after their turn has been sitting >12h, and only once per 12h.
+const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+const recentlyNudged = new Set(); // game ids nudged this session — hides 🔔 immediately on click
+
 function renderLobby(games, usernameById = {}) {
   const list = els.lobbyList();
   list.innerHTML = '';
@@ -260,24 +266,72 @@ function renderLobby(games, usernameById = {}) {
   }
   els.lobbyEmpty().classList.add('hidden');
 
+  const me = state.session.user.id;
+  const now = Date.now();
+
   games.forEach(g => {
     const row = document.createElement('div');
     row.className = 'lobby-row';
 
-    const me = state.session.user.id;
-    const players = g.rg_players ?? [];
-    const isMine = players.some(p => p.user_id === me);
-    const creator = players.find(p => p.player_idx === 0);
-    const creatorName = usernameById[creator?.user_id] ?? 'Someone';
+    const players = (g.rg_players ?? []).slice().sort((a, b) => a.player_idx - b.player_idx);
+    const isMine  = players.some(p => p.user_id === me);
+    const isActive = g.status === 'active';
+
+    // Nudge eligibility (mirrors Wordy LobbyPage):
+    // active game, I'm in it, not my turn, turn started >12h ago,
+    // last nudge either null or >12h ago, and not just-nudged this session.
+    const currentPlayer = players.find(p => p.player_idx === g.current_player_idx);
+    const isMyTurn = currentPlayer?.user_id === me;
+    const turnAge  = g.turn_started_at  ? now - new Date(g.turn_started_at).getTime() : 0;
+    const nudgeAge = g.last_nudged_at   ? now - new Date(g.last_nudged_at).getTime() : Infinity;
+    const canNudge = isActive
+      && isMine
+      && !isMyTurn
+      && turnAge  > NUDGE_COOLDOWN_MS
+      && nudgeAge > NUDGE_COOLDOWN_MS
+      && !recentlyNudged.has(g.id);
+
+    // Player chip strip — matches Wordy: pills per player, current player
+    // highlighted, count pill at the end. Shown on both waiting + active rows.
+    const chips = document.createElement('div');
+    chips.className = 'lobby-chips';
+    players.forEach(p => {
+      const isCurrent = isActive && p.player_idx === g.current_player_idx;
+      const chip = document.createElement('span');
+      chip.className = 'lobby-chip' + (isCurrent ? ' lobby-chip-current' : '');
+
+      if (isCurrent && canNudge) {
+        const bell = document.createElement('button');
+        bell.type = 'button';
+        bell.className = 'lobby-nudge';
+        bell.title = 'Send a reminder';
+        bell.textContent = '🔔';
+        bell.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sendNudge(g.id, bell);
+        });
+        chip.append(bell);
+      }
+
+      const name = document.createElement('span');
+      name.className = 'lobby-chip-name';
+      name.textContent = usernameById[p.user_id] ?? '?';
+      chip.append(name);
+      chips.append(chip);
+    });
+
+    const count = document.createElement('span');
+    count.className = 'lobby-chip-count';
+    count.textContent = `(${players.length}/${g.max_players})`;
+    chips.append(count);
 
     const meta = document.createElement('div');
     meta.className = 'lobby-meta';
-    const statusLabel = g.status === 'active' ? 'In progress' : `${players.length}/${g.max_players}`;
-    meta.innerHTML = `
-      <span class="lobby-creator">${escapeHtml(creatorName)}</span>
-      <span class="lobby-detail">${g.total_rungs} rungs · ${statusLabel}</span>
-      <span class="lobby-time">${timeAgo(g.created_at)}</span>
-    `;
+    meta.append(chips);
+    const sub = document.createElement('span');
+    sub.className = 'lobby-detail';
+    sub.textContent = `${g.total_rungs} rungs · ${timeAgo(g.created_at)}`;
+    meta.append(sub);
 
     const action = document.createElement('button');
     action.className = 'btn btn-primary lobby-action';
@@ -293,6 +347,46 @@ function renderLobby(games, usernameById = {}) {
     row.append(meta, action);
     list.append(row);
   });
+}
+
+async function sendNudge(gameId, buttonEl) {
+  if (recentlyNudged.has(gameId)) return;
+  buttonEl.disabled = true;
+  buttonEl.textContent = '⏳';
+
+  // Server-side cooldown anchor + caller-must-be-in-game check.
+  const { error: rpcErr } = await supabase.rpc('rg_nudge', { p_game_id: gameId });
+  if (rpcErr) {
+    console.warn('[nudge] rpc failed:', rpcErr.message);
+    buttonEl.disabled = false;
+    buttonEl.textContent = '🔔';
+    alert(`Couldn't send reminder: ${rpcErr.message}`);
+    return;
+  }
+
+  recentlyNudged.add(gameId);
+
+  // Fire-and-forget push delivery.
+  const url = `${SUPABASE_URL}/functions/v1/rungles-push-notification`;
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'apikey': SUPABASE_ANON,
+    },
+    body: JSON.stringify({
+      type: 'nudge',
+      game_id: gameId,
+      nudger_name: state.profile?.username,
+    }),
+  })
+    .then(r => r.json().then(d => console.log('[nudge]', r.status, d)))
+    .catch(e => console.warn('[nudge] push failed:', e));
+
+  // Re-render so the bell disappears immediately (and reflects the new
+  // last_nudged_at once the lobby refreshes).
+  refreshLobby();
 }
 
 async function handleCreate() {

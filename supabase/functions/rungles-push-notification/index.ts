@@ -72,6 +72,45 @@ serve(async (req: Request) => {
     const payload = await req.json()
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+    // ── nudge (from client) ─────────────────────────────────────
+    // Client has already updated rg_games.last_nudged_at via the rg_nudge
+    // RPC (which enforces cooldown + caller-in-game). This branch just
+    // delivers the push to whoever's turn it currently is.
+    if (payload.type === 'nudge') {
+      const { game_id, nudger_name } = payload
+
+      const { data: game } = await supabase
+        .from('rg_games')
+        .select('current_player_idx, status')
+        .eq('id', game_id)
+        .single()
+
+      if (!game || game.status !== 'active') {
+        return new Response(JSON.stringify({ skipped: 'game not active' }), { status: 200, headers: corsHeaders })
+      }
+
+      const { data: currentPlayer } = await supabase
+        .from('rg_players')
+        .select('user_id')
+        .eq('game_id', game_id)
+        .eq('player_idx', game.current_player_idx)
+        .single()
+
+      if (!currentPlayer) {
+        return new Response(JSON.stringify({ skipped: 'player not found' }), { status: 200, headers: corsHeaders })
+      }
+
+      const result = await sendPushToUser(supabase, currentPlayer.user_id, {
+        title: "Rungles — it's your turn!",
+        body: `${nudger_name || 'Someone'} is waiting for your move! 🔔`,
+        tag: `rungles-nudge-${game_id}`,
+        url: `/rungles/?game=${game_id}`,
+        icon: '/rungles/favicon.svg',
+      })
+
+      return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
+    }
+
     // ── turn_change (from rg_games DB trigger) ──────────────────
     const { record, old_record } = payload
 

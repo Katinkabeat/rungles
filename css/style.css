@@ -1246,13 +1246,69 @@ html.dark .card { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 .lobby-meta {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   font-size: 13px;
   color: var(--ink-soft);
   min-width: 0;
 }
-.lobby-creator { font-weight: 600; color: var(--ink); font-size: 14px; }
 .lobby-detail { font-size: 12px; }
-.lobby-time { font-size: 11px; opacity: 0.7; }
+
+/* Player chip strip — mirrors Wordy's lobby row. Pills per player; the
+   current player on an active game is highlighted in the accent purple. */
+.lobby-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lobby-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  line-height: 1.4;
+}
+html.dark .lobby-chip {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.lobby-chip-current {
+  background: var(--accent-strong);
+  color: #fff;
+}
+html.dark .lobby-chip-current {
+  background: var(--accent);
+  color: #1a1130;
+}
+.lobby-chip-name { line-height: 1; }
+.lobby-chip-count {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-left: 2px;
+}
+
+/* Nudge bell — sits inside the current player's chip when eligible. */
+.lobby-nudge {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.lobby-nudge:hover, .lobby-nudge:focus-visible {
+  transform: scale(1.15);
+  outline: none;
+}
+.lobby-nudge:disabled { cursor: default; opacity: 0.6; }
 .lobby-action {
   flex: none;
   padding: 6px 12px;
