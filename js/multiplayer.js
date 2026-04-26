@@ -1,20 +1,17 @@
-// Rungles multiplayer: auth, lobby, waiting room. Phase A is lobby only.
-// Turn-by-turn play (rg_submit_rung wiring) is the next chunk.
+// Rungles multiplayer: lobby, waiting room, view orchestration.
+// Authentication is owned by the SideQuest hub at /games/ — unauthed users
+// are redirected there on boot. The username/logout helpers below assume a
+// session is always present by the time render() runs.
 
 import { supabase } from './supabase-client.js';
 import { startMatch, stopMatch } from './match.js';
-// Push notification opt-in moved to the SideQuest hub
+// Push notification opt-in lives in the SideQuest hub
 // (rae-side-quest/src/lib/pushNotifications.js). Rungles no longer renders
 // its own notification banner — friends are auto-migrated to the unified
 // SideQuest subscription on their next hub visit.
 import { openStatsModal } from './game.js';
 
 const els = {
-  authGate:   () => document.querySelector('.auth-gate'),
-  authForm:   () => document.querySelector('.auth-form'),
-  authEmail:  () => document.querySelector('.auth-email'),
-  authPass:   () => document.querySelector('.auth-password'),
-  authError:  () => document.querySelector('.auth-error'),
   authUser:   () => document.querySelector('.auth-username'),
   authLogout: () => document.querySelector('.auth-logout'),
   userBar:    () => document.querySelector('.settings-wrap'),
@@ -39,42 +36,18 @@ const state = {
   matchActive: false,     // true once status='active' and match view is up
   lobbySub: null,         // realtime channel subscription on rg_games
   gameSub: null,          // realtime channel for our specific waiting game
-  captchaToken: null,     // Turnstile token, required by Supabase auth on this project
 };
-
-// Cloudflare Turnstile callbacks (the widget invokes these on the global scope).
-window.rgTurnstileCb = (token) => { state.captchaToken = token; };
-window.rgTurnstileExpired = () => { state.captchaToken = null; };
-
-// Shared with Wordy. Cloudflare locks site keys to allowed hostnames, so
-// localhost / new deploy domains must be added to this key's allow-list in the
-// Cloudflare Turnstile dashboard or the widget fails with error 110200.
-const TURNSTILE_SITE_KEY = '0x4AAAAAACrUqndWqt4-0ExK';
-
-function mountTurnstile() {
-  const mount = document.querySelector('.auth-turnstile-mount');
-  if (!mount || mount.dataset.mounted) return;
-  // Wait until the API has loaded; it's async/defer.
-  if (!window.turnstile) {
-    setTimeout(mountTurnstile, 200);
-    return;
-  }
-  window.turnstile.render(mount, {
-    sitekey: TURNSTILE_SITE_KEY,
-    callback: window.rgTurnstileCb,
-    'expired-callback': window.rgTurnstileExpired,
-    'error-callback': window.rgTurnstileExpired,
-  });
-  mount.dataset.mounted = '1';
-}
 
 // ---------- view orchestration ----------
 
 // Top-level view state. Auth gates everything: nothing else renders until signed in.
 function render() {
+  // Phase 2: auth is owned by the SideQuest hub, so by the time render()
+  // runs we always have a session. Keep the .authed-only/.anon-only toggles
+  // so any legacy markup behaves correctly during the brief window between
+  // page load and the redirect-to-hub for an unauthed visitor.
   const authed = !!state.session;
 
-  els.authGate().classList.toggle('hidden', authed);
   document.querySelectorAll('.authed-only').forEach(el => el.classList.toggle('hidden', !authed));
   document.querySelectorAll('.anon-only').forEach(el => el.classList.toggle('hidden', authed));
 
@@ -222,43 +195,11 @@ function wireAvatar() {
   });
 }
 
-async function handleSignIn(e) {
-  e.preventDefault();
-  const email = els.authEmail().value.trim();
-  const password = els.authPass().value;
-  els.authError().textContent = '';
-  // Token can come from either the JS callback (state.captchaToken) or the
-  // hidden input the widget injects. Prefer the input since it's authoritative.
-  const tokenInput = document.querySelector('.auth-turnstile-mount input[name="cf-turnstile-response"]');
-  const captchaToken = tokenInput?.value || state.captchaToken;
-  if (!captchaToken) {
-    els.authError().textContent = 'Please complete the CAPTCHA check first.';
-    return;
-  }
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email, password,
-    options: { captchaToken },
-  });
-  state.captchaToken = null;
-  if (window.turnstile) window.turnstile.reset();
-  if (error) {
-    els.authError().textContent = error.message;
-    return;
-  }
-  state.session = data.session;
-  await loadProfile();
-  render();
-  subscribeLobby();
-}
-
 async function handleLogout() {
   await supabase.auth.signOut();
-  state.session = null;
-  state.profile = null;
-  state.currentGameId = null;
-  unsubscribeLobby();
-  unsubscribeGame();
-  render();
+  // The onAuthStateChange listener (registered at the bottom of
+  // initMultiplayer) sees the cleared session and redirects to the SideQuest
+  // hub. No need to clean up local state — we're navigating away.
 }
 
 // ---------- lobby ----------
@@ -481,12 +422,6 @@ async function handleDeepLink() {
 
 // ---------- boot ----------
 
-// Only redirect to the SQ hub login when we're actually deployed alongside it.
-// Local dev (running this app standalone) keeps the in-app auth gate working.
-function shouldRedirectToHub() {
-  return window.location.hostname === 'katinkabeat.github.io';
-}
-
 function redirectToSqLogin() {
   const ret = window.location.pathname + window.location.search;
   const url = `${window.location.origin}/games/?return=${encodeURIComponent(ret)}`;
@@ -494,13 +429,21 @@ function redirectToSqLogin() {
 }
 
 export async function initMultiplayer() {
+  // Pick up an existing session (shared across all SideQuest games via
+  // localStorage on this origin). Phase 2: with no in-app login form left,
+  // unauthed users are unconditionally routed to the SQ hub.
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    redirectToSqLogin();
+    return;
+  }
+  state.session = data.session;
+
   // Wire up menu / back buttons.
   els.playSolo().addEventListener('click', startSolo);
   els.soloBack().addEventListener('click', goToMenu);
 
-  // Wire up auth form / logout. (The auth form is only reachable in dev; in
-  // production the unauthed redirect below sends users to the SQ hub.)
-  els.authForm().addEventListener('submit', handleSignIn);
+  // Logout is reachable from the in-app settings dropdown.
   els.authLogout().addEventListener('click', handleLogout);
 
   // Lobby + waiting room buttons.
@@ -510,22 +453,8 @@ export async function initMultiplayer() {
   // Wire up avatar button + hue picker + stats link.
   wireAvatar();
 
-  // Render the CAPTCHA widget (only used by the in-app form in dev).
-  mountTurnstile();
-
-  // Pick up an existing session (e.g. from a previous SQ hub login on this
-  // origin). Phase 1: unauthed users in production are routed to the SQ hub
-  // login instead of seeing Rungles' own auth gate.
-  const { data } = await supabase.auth.getSession();
-  if (!data.session && shouldRedirectToHub()) {
-    redirectToSqLogin();
-    return;
-  }
-  if (data.session) {
-    state.session = data.session;
-    await loadProfile();
-    subscribeLobby();
-  }
+  await loadProfile();
+  subscribeLobby();
 
   // Deep-link: push notifications carry ?game=<id> so tapping one drops you
   // straight into that match (if you're authed and in it).
@@ -544,17 +473,13 @@ export async function initMultiplayer() {
   delete document.documentElement.dataset.prepaint;
 
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session && shouldRedirectToHub()) {
-      // Logout (or session loss) in production bounces the user to the SQ hub
-      // login. The ?return= param brings them back here on re-authentication.
+    if (!session) {
+      // Logout or session loss bounces the user to the SQ hub login. The
+      // ?return= param brings them back here on re-authentication.
       redirectToSqLogin();
       return;
     }
     state.session = session;
-    if (!session) {
-      state.profile = null;
-      state.currentGameId = null;
-    }
     render();
   });
 }

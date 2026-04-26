@@ -18,7 +18,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
   <script>
     // Pre-paint hints: applied synchronously to <html> before any element
@@ -95,24 +94,6 @@
         </div>
       </div>
     </header>
-
-    <section class="auth-gate hidden">
-      <h2 class="multi-h2">Sign in to play</h2>
-      <p class="multi-sub">Registration is closed for now. If you have an account, sign in below.</p>
-      <form class="auth-form">
-        <label class="multi-label">
-          Email
-          <input class="auth-email" type="email" autocomplete="email" required />
-        </label>
-        <label class="multi-label">
-          Password
-          <input class="auth-password" type="password" autocomplete="current-password" required />
-        </label>
-        <div class="auth-turnstile-mount"></div>
-        <button class="btn btn-primary" type="submit">Sign in</button>
-        <p class="auth-error" role="alert"></p>
-      </form>
-    </section>
 
     <div class="landing hidden">
       <div class="rg-notif-mount" aria-live="polite"></div>
@@ -375,12 +356,12 @@
     </div>
   </dialog>
 
-  <script type="module" src="js/game.js?v=28"></script>
+  <script type="module" src="js/game.js?v=29"></script>
   <script type="module">
-    import { initMultiplayer } from './js/multiplayer.js?v=28';
+    import { initMultiplayer } from './js/multiplayer.js?v=29';
     document.addEventListener('DOMContentLoaded', initMultiplayer);
   </script>
-  <script src="js/sw-update.js?v=28"></script>
+  <script src="js/sw-update.js?v=29"></script>
   <script>
     // Dark mode toggle + settings dropdown wiring.
     document.addEventListener('DOMContentLoaded', () => {
