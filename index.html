@@ -72,10 +72,6 @@
           <button class="icon-btn settings-toggle" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">⚙️</button>
           <div class="settings-dropdown hidden" role="menu">
             <div class="settings-row">
-              <span class="settings-label">Name</span>
-              <span class="settings-value auth-username">…</span>
-            </div>
-            <div class="settings-row">
               <span class="settings-label">How to play</span>
               <button class="settings-action btn-rules" type="button">Open</button>
             </div>
@@ -84,11 +80,7 @@
               <button class="settings-action theme-toggle" type="button">🌙 Dark</button>
             </div>
             <div class="settings-row">
-              <span class="settings-label">Reload app</span>
-              <button class="settings-action settings-reload" type="button">Refresh</button>
-            </div>
-            <div class="settings-row">
-              <button class="settings-action settings-logout auth-logout" type="button">Log out</button>
+              <button class="settings-action settings-logout" type="button">Log out</button>
             </div>
           </div>
         </div>
@@ -406,30 +398,6 @@
       // Close after any row action fires (rules/theme/logout all live inside).
       menu.addEventListener('click', (e) => {
         if (e.target.closest('.settings-action')) close();
-      });
-
-      // Reload app: check for a new service worker + activate it + clear HTTP
-      // caches, then hard reload. We do NOT unregister the SW here because that
-      // invalidates the user's Web Push subscription (they'd have to re-enable
-      // notifications every time they refresh).
-      const reloadBtn = menu.querySelector('.settings-reload');
-      reloadBtn?.addEventListener('click', async () => {
-        reloadBtn.disabled = true;
-        reloadBtn.textContent = 'Refreshing…';
-        try {
-          if ('serviceWorker' in navigator) {
-            const regs = await navigator.serviceWorker.getRegistrations();
-            for (const r of regs) {
-              try { await r.update(); } catch {}
-              if (r.waiting) r.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-          }
-          if ('caches' in window) {
-            const keys = await caches.keys();
-            await Promise.all(keys.map(k => caches.delete(k)));
-          }
-        } catch (e) { /* fall through to reload regardless */ }
-        window.location.reload();
       });
     });
   </script>

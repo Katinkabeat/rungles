@@ -12,8 +12,7 @@ import { startMatch, stopMatch } from './match.js';
 import { openStatsModal } from './game.js';
 
 const els = {
-  authUser:   () => document.querySelector('.auth-username'),
-  authLogout: () => document.querySelector('.auth-logout'),
+  authLogout: () => document.querySelector('.settings-logout'),
   userBar:    () => document.querySelector('.settings-wrap'),
   landing:    () => document.querySelector('.landing'),
   playSolo:   () => document.querySelector('.play-solo'),
@@ -96,7 +95,6 @@ async function loadProfile() {
   state.profile = data
     ? { ...data, avatar_hue: data.avatar_hue ?? 270 }
     : { username: state.session.user.email, avatar_hue: 270 };
-  if (els.authUser()) els.authUser().textContent = state.profile.username;
   updateAvatar();
 
   // Push notification opt-in is handled by the SideQuest hub, not here.
