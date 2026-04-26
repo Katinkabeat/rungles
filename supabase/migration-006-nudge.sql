@@ -18,11 +18,16 @@ ALTER TABLE rg_games
   ADD COLUMN IF NOT EXISTS turn_started_at timestamptz,
   ADD COLUMN IF NOT EXISTS last_nudged_at  timestamptz;
 
--- Backfill turn_started_at on existing active games. Without this they'd
--- look like a brand-new turn (NULL → "0h ago") and never become nudgeable.
-UPDATE rg_games
-   SET turn_started_at = now()
- WHERE status = 'active' AND turn_started_at IS NULL;
+-- Backfill turn_started_at on existing active games using the most recent
+-- rung's created_at (or the game's created_at if no rungs played yet).
+-- Stamping `now()` would mask real waits and prevent the nudge bell from
+-- ever appearing on games that have actually been sitting for >12h.
+UPDATE rg_games g
+   SET turn_started_at = COALESCE(
+         (SELECT max(created_at) FROM rg_rungs r WHERE r.game_id = g.id),
+         g.created_at
+       )
+ WHERE g.status = 'active' AND g.turn_started_at IS NULL;
 
 -- Update the turn-advancing RPCs to stamp turn_started_at whenever
 -- current_player_idx changes. Same SECURITY DEFINER bodies as before, just
