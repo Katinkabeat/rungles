@@ -8,3 +8,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 )
+
+// Register service worker. Path must be relative so it lives under
+// `${BASE_URL}sw.js` in both dev and prod (Vite serves public/ at the base).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch(err => console.warn('Service worker registration failed:', err))
+  })
+}
