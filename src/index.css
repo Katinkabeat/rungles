@@ -121,11 +121,12 @@ body {
   color: hsl(30, 80%, 20%);
 }
 .tile-carried {
-  background: linear-gradient(145deg, hsl(0, 0%, 86%), hsl(0, 0%, 76%));
-  border-color: hsl(0, 0%, 60%);
-  color: hsl(0, 0%, 15%);
+  background: #e5e5e5;
+  border-color: #a3a3a3;
+  color: #525252;
+  box-shadow: 0 2px 0 #737373;
 }
-.tile-carried .tile-value { color: hsl(0, 0%, 35%); }
+.tile-carried .tile-value { color: #737373; }
 .tile-value {
   position: absolute;
   bottom: 2px;
@@ -151,11 +152,12 @@ body {
   color: hsl(30, 80%, 12%);
 }
 .dark .tile-carried {
-  background: linear-gradient(145deg, hsl(0, 0%, 78%), hsl(0, 0%, 68%));
-  border-color: hsl(0, 0%, 50%);
-  color: hsl(0, 0%, 12%);
+  background: #3f3f46;
+  border-color: #71717a;
+  color: #e4e4e7;
+  box-shadow: 0 2px 0 #52525b;
 }
-.dark .tile-carried .tile-value { color: hsl(0, 0%, 30%); }
+.dark .tile-carried .tile-value { color: #a1a1aa; }
 .dark .tile-value { color: hsl(270, 70%, 30%); }
 
 /* Empty word slot (placed inline beside .tile in the word area) */
