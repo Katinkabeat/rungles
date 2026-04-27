@@ -1,55 +1,90 @@
 import React, { useEffect, useState } from 'react'
-import { dealOpeningHand, LETTER_VALUES } from './lib/tiles.js'
-import { loadDictionary, isValidWord, dictionarySize } from './lib/dictionary.js'
-import { scoreRung } from './lib/scoring.js'
+import { Toaster } from 'react-hot-toast'
+import { ThemeProvider } from './contexts/ThemeContext.jsx'
+import RunglesHeader from './components/RunglesHeader.jsx'
 import { supabase } from './lib/supabase.js'
+import { loadDictionary, dictionarySize } from './lib/dictionary.js'
 
-export default function App() {
-  const [status, setStatus] = useState('Loading dictionary…')
-  const [checks, setChecks] = useState([])
+function redirectToSqLogin() {
+  const ret = window.location.pathname + window.location.search
+  const url = `${window.location.origin}/games/?return=${encodeURIComponent(ret)}`
+  window.location.replace(url)
+}
+
+function AppInner() {
+  const [boot, setBoot] = useState('checking')   // 'checking' | 'ready'
+  const [profile, setProfile] = useState(null)
+  const [dictReady, setDictReady] = useState(false)
 
   useEffect(() => {
     let alive = true
-    loadDictionary().then(() => {
+    ;(async () => {
+      const { data } = await supabase.auth.getSession()
       if (!alive) return
-      const { rack } = dealOpeningHand(() => true)
-      const sampleWord = 'CRANE'
-      const sampleScore = scoreRung(
-        sampleWord.split('').map((letter) => ({ source: 'rack', letter })),
-        null
-      )
-      setChecks([
-        { label: 'Dictionary loaded', value: `${dictionarySize().toLocaleString()} words` },
-        { label: 'Sample rack', value: rack.join(' ') },
-        { label: '"CRANE" valid?', value: String(isValidWord(sampleWord)) },
-        { label: '"CRANE" score', value: sampleScore },
-        { label: 'Letter A value', value: LETTER_VALUES.A },
-        { label: 'Supabase client', value: supabase ? 'created' : 'missing' },
-      ])
-      setStatus('Phase 2 logic loaded ✓')
-    }).catch((err) => {
-      setStatus(`Dictionary load failed: ${err.message}`)
-    })
+      if (!data.session) {
+        // Dev escape hatch: standalone Vite has no hub to redirect to.
+        // Render with a stub profile so we can verify UI in isolation.
+        // Production (and the hub-fronted dev:all flow) still gates strictly.
+        if (import.meta.env.DEV) {
+          setProfile({ username: 'dev-user', avatar_hue: 270 })
+          setBoot('ready')
+          return
+        }
+        redirectToSqLogin()
+        return
+      }
+      const userId = data.session.user.id
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('username, avatar_hue')
+        .eq('id', userId)
+        .maybeSingle()
+      if (!alive) return
+      setProfile(prof ?? { username: data.session.user.email, avatar_hue: 270 })
+      setBoot('ready')
+    })()
+    loadDictionary().then(() => alive && setDictReady(true)).catch(() => {})
     return () => { alive = false }
   }, [])
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-rungles-50 text-rungles-900 font-body p-6">
-      <div className="max-w-[480px] w-full text-center">
-        <h1 className="font-display text-4xl mb-3">Rungles 🪜</h1>
-        <p className="text-rungles-700 mb-1">React port — under construction</p>
-        <p className="text-sm text-rungles-600 mb-6">{status}</p>
-        {checks.length > 0 && (
-          <ul className="text-left text-sm bg-white rounded-lg p-4 shadow-tile space-y-1">
-            {checks.map((c) => (
-              <li key={c.label}>
-                <span className="font-semibold text-rungles-700">{c.label}:</span>{' '}
-                <span className="text-rungles-900">{String(c.value)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+  if (boot === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-rungles-50 text-rungles-700 font-body">
+        <p>Loading…</p>
       </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rungles-50 via-pink-50 to-rungles-100 dark:bg-[#0f0a1e] dark:bg-none text-rungles-900 dark:text-rungles-100 font-body">
+      <RunglesHeader
+        profile={profile}
+        onAvatarClick={() => { /* Phase 3e */ }}
+        onSettingsClick={() => { /* Phase 3e */ }}
+      />
+      <main className="max-w-[480px] mx-auto px-4 py-6 space-y-4">
+        <section className="bg-white rounded-xl p-4 shadow-tile dark:bg-[#241640] dark:border dark:border-[#6d28d9]">
+          <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-2">
+            Phase 3a — Header ✓
+          </h2>
+          <p className="text-sm text-rungles-700 dark:text-rungles-300">
+            Signed in as <span className="font-semibold">{profile?.username}</span>.
+            Dictionary: {dictReady ? `${dictionarySize().toLocaleString()} words ready` : 'loading…'}.
+          </p>
+          <p className="text-xs text-rungles-500 dark:text-rungles-400 mt-2">
+            Landing, solo, multi, and dropdowns land in Phases 3b–3e.
+          </p>
+        </section>
+      </main>
+      <Toaster position="top-center" />
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
   )
 }
