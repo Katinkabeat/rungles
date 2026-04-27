@@ -121,11 +121,11 @@ body {
   color: hsl(30, 80%, 20%);
 }
 .tile-carried {
-  background: linear-gradient(145deg, #f3f4f6, #e5e7eb);
-  border-color: #cbd5e1;
-  color: #374151;
+  background: linear-gradient(145deg, #d1d5db, #9ca3af);
+  border-color: #6b7280;
+  color: #1f2937;
 }
-.tile-carried .tile-value { color: #525252; }
+.tile-carried .tile-value { color: #4b5563; }
 .tile-value {
   position: absolute;
   bottom: 2px;

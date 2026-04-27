@@ -456,11 +456,11 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
           {carriedLetters.length === 0 ? (
             <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
           ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-rungles-600 dark:text-rungles-300">
+            <div className="space-y-1">
+              <p className="text-xs text-rungles-600 dark:text-rungles-300">
                 {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
-              </span>
-              <div className="flex gap-1">
+              </p>
+              <div className="flex gap-1 flex-wrap">
                 {carriedLetters.map((letter, idx) => {
                   const used = usedCarriedIdxs.has(idx)
                   return (

@@ -277,11 +277,11 @@ export default function SoloGamePage({ onBack }) {
         {state.carried.length === 0 ? (
           <p className="text-xs text-rungles-500 italic">Carried: — (rung 1: no carryover)</p>
         ) : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-rungles-600 dark:text-rungles-300">
+          <div className="space-y-1">
+            <p className="text-xs text-rungles-600 dark:text-rungles-300">
               Carried (need {CARRY_REQUIRED}):
-            </span>
-            <div className="flex gap-1">
+            </p>
+            <div className="flex gap-1 flex-wrap">
               {state.carried.map((c, idx) => {
                 const used = usedCarriedIdxs.has(idx)
                 return (
