@@ -3,6 +3,8 @@ import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import RunglesHeader from './components/RunglesHeader.jsx'
 import LandingPage from './components/LandingPage.jsx'
+import SoloGamePage from './components/SoloGamePage.jsx'
+import MultiGamePage from './components/MultiGamePage.jsx'
 import { supabase } from './lib/supabase.js'
 import { loadDictionary } from './lib/dictionary.js'
 
@@ -88,46 +90,15 @@ function AppInner() {
       )}
 
       {view === 'solo' && (
-        <main className="max-w-[480px] mx-auto px-4 py-6">
-          <button
-            type="button"
-            className="btn-secondary mb-4"
-            onClick={() => setView('landing')}
-          >
-            ← Menu
-          </button>
-          <div className="card">
-            <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-2">
-              Solo game (Phase 3c)
-            </h2>
-            <p className="text-sm text-rungles-700 dark:text-rungles-300">
-              Solo gameplay lands in Phase 3c.
-            </p>
-          </div>
-        </main>
+        <SoloGamePage onBack={() => setView('landing')} />
       )}
 
-      {view === 'multi' && (
-        <main className="max-w-[480px] mx-auto px-4 py-6">
-          <button
-            type="button"
-            className="btn-secondary mb-4"
-            onClick={() => { setCurrentGameId(null); setView('landing') }}
-          >
-            ← Menu
-          </button>
-          <div className="card">
-            <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-2">
-              Multi game (Phase 3d)
-            </h2>
-            <p className="text-sm text-rungles-700 dark:text-rungles-300">
-              Game id: <code>{currentGameId}</code>
-            </p>
-            <p className="text-xs text-rungles-500 dark:text-rungles-400 mt-2">
-              Multiplayer match UI lands in Phase 3d.
-            </p>
-          </div>
-        </main>
+      {view === 'multi' && currentGameId && (
+        <MultiGamePage
+          gameId={currentGameId}
+          myUserId={session?.user?.id}
+          onLeave={() => { setCurrentGameId(null); setView('landing') }}
+        />
       )}
 
       <Toaster position="top-center" />

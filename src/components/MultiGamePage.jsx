@@ -1,0 +1,570 @@
+import React, { useEffect, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
+import Tile, { EmptySlot } from './Tile.jsx'
+import BlankPickerModal from './BlankPickerModal.jsx'
+import MultiLadderRow, { SeedRow } from './MultiLadderRow.jsx'
+import MultiHistoryModal from './MultiHistoryModal.jsx'
+import MultiEndGameModal from './MultiEndGameModal.jsx'
+import {
+  loadMatch, fetchPremium, refreshRack,
+  submitRung, skipTurn, giveUpMatch,
+  subscribeMatch, subscribeGameStatus, unsubscribe,
+} from '../lib/matchService.js'
+import { scoreRung } from '../lib/scoring.js'
+
+const MAX_WORD_LEN = 7
+const MIN_WORD_LEN = 4
+const CARRY_REQUIRED = 3
+
+function emptyWord() { return new Array(MAX_WORD_LEN).fill(null) }
+
+export default function MultiGamePage({ gameId, myUserId, onLeave }) {
+  // Top-level data
+  const [game, setGame] = useState(null)
+  const [players, setPlayers] = useState([])
+  const [rack, setRack] = useState([])
+  const [rungs, setRungs] = useState([])
+  const [premiumPos, setPremiumPos] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+
+  // Word-builder state. selected[slot] = { source, idx (serverIdx for rack), letter } | null
+  const [selected, setSelected] = useState(emptyWord())
+  const [selection, setSelection] = useState(null) // { source, idx }
+  const [rackOrder, setRackOrder] = useState(null) // visual permutation of serverIdx; null = identity
+
+  // UI state
+  const [status, setStatus] = useState({ text: '', tone: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [pendingBlank, setPendingBlank] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [endgameOpen, setEndgameOpen] = useState(false)
+  const [giveUpArmed, setGiveUpArmed] = useState(false)
+  const giveUpTimer = useRef(null)
+  const wasComplete = useRef(false) // track status transitions
+
+  // Initial load.
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    loadMatch(gameId, myUserId)
+      .then(data => {
+        if (!alive) return
+        setGame(data.game)
+        setPlayers(data.players)
+        setRack(data.rack)
+        setRungs(data.rungs)
+        setPremiumPos(data.premiumPos)
+        setRackOrder(null)
+        wasComplete.current = data.game.status === 'complete'
+        setLoading(false)
+      })
+      .catch(e => {
+        if (!alive) return
+        setLoadError(e.message ?? String(e))
+        setLoading(false)
+      })
+    return () => { alive = false }
+  }, [gameId, myUserId])
+
+  // Waiting-room subscription: jump to active when status flips.
+  useEffect(() => {
+    if (!game || game.status !== 'waiting') return
+    const ch = subscribeGameStatus(gameId, async (newGame) => {
+      if (newGame.status === 'active') {
+        // Reload everything (rack, players, premium) since status flipped.
+        try {
+          const data = await loadMatch(gameId, myUserId)
+          setGame(data.game)
+          setPlayers(data.players)
+          setRack(data.rack)
+          setRungs(data.rungs)
+          setPremiumPos(data.premiumPos)
+        } catch (e) {
+          toast.error(`Couldn't load match: ${e.message ?? e}`)
+        }
+      } else {
+        setGame(newGame)
+      }
+    })
+    return () => unsubscribe(ch)
+  }, [game?.status, gameId, myUserId])
+
+  // Active-match subscription.
+  useEffect(() => {
+    if (!game || game.status !== 'active') return
+    const ch = subscribeMatch(gameId, {
+      onRungInsert: (newRung) => {
+        setRungs(prev => {
+          if (prev.find(r => r.id === newRung.id)) return prev
+          return [...prev, newRung].sort((a, b) => a.rung_number - b.rung_number)
+        })
+        // Refresh premium for the next rung.
+        fetchPremium(gameId, (rungs.length + 1) + 1).then(setPremiumPos).catch(() => {})
+      },
+      onGameUpdate: async (newGame) => {
+        const wasC = wasComplete.current
+        setGame(newGame)
+        // Server may have refilled rack on turn change.
+        try {
+          const r = await refreshRack(gameId, myUserId)
+          setRack(r)
+          setRackOrder(null)
+        } catch {}
+        if (newGame.status === 'complete' && !wasC) {
+          wasComplete.current = true
+          // Show endgame modal to whoever made the final move; the other
+          // player sees the status banner and pill.
+          // We can't reliably know "did I just submit" from inside this
+          // callback, so we always open it — Close + pill let them dismiss.
+          setEndgameOpen(true)
+        }
+      },
+      onPlayerUpdate: (newPlayer) => {
+        setPlayers(prev => prev.map(p =>
+          p.userId === newPlayer.user_id
+            ? { ...p, score: newPlayer.score }
+            : p
+        ))
+      },
+    })
+    return () => unsubscribe(ch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.status, gameId, myUserId])
+
+  // ── derived helpers ─────────────────────────────────────────
+  const me = players.find(p => p.userId === myUserId)
+  const opponent = players.find(p => p.userId !== myUserId)
+  const myTurn = !!game && game.status === 'active' && me && game.current_player_idx === me.playerIdx
+  const playable = myTurn && !submitting
+
+  const carriedLetters = (() => {
+    if (rungs.length === 0) return (game?.seed_word ?? '').split('')
+    return rungs[rungs.length - 1].word.split('')
+  })()
+  const fromSeed = rungs.length === 0
+
+  const filled = selected.filter(Boolean).length
+  const carriedUsed = selected.filter(e => e && e.source === 'carried').length
+  const currentWord = selected.filter(Boolean).map(e => e.letter).join('')
+  const previewPts = filled > 0 ? scoreRung(selected, premiumPos) : null
+
+  const lastFilledSlot = (() => {
+    for (let i = MAX_WORD_LEN - 1; i >= 0; i--) if (selected[i]) return i
+    return -1
+  })()
+  const hasGap = lastFilledSlot >= 0 && lastFilledSlot + 1 !== filled
+
+  const order = (() => {
+    if (Array.isArray(rackOrder) && rackOrder.length === rack.length) return rackOrder
+    return rack.map((_, i) => i)
+  })()
+
+  const usedRackIdxs = new Set(selected.filter(e => e && e.source === 'rack').map(e => e.idx))
+  const usedCarriedIdxs = new Set(selected.filter(e => e && e.source === 'carried').map(e => e.idx))
+
+  const nextRungNumber = rungs.length + 1
+  const totalRungs = game?.total_rungs ?? 10
+
+  // ── interactions ────────────────────────────────────────────
+  function clearWord() {
+    setSelected(emptyWord())
+    setSelection(null)
+  }
+
+  function selectionMatches(source, idx) {
+    return selection && selection.source === source && selection.idx === idx
+  }
+
+  function handleSourceTap(source, idx) {
+    if (!playable) return
+    if (!selection) { setSelection({ source, idx }); return }
+    if (selectionMatches(source, idx)) { setSelection(null); return }
+    if (selection.source === 'rack' && source === 'rack') {
+      reorderRackVisual(selection.idx, idx)
+      setSelection(null)
+      return
+    }
+    setSelection({ source, idx })
+  }
+
+  function reorderRackVisual(fromServerIdx, toServerIdx) {
+    const cur = order.slice()
+    const from = cur.indexOf(fromServerIdx)
+    const to = cur.indexOf(toServerIdx)
+    if (from === -1 || to === -1 || from === to) return
+    const [moved] = cur.splice(from, 1)
+    const insertAt = from < to ? to - 1 : to
+    cur.splice(insertAt, 0, moved)
+    setRackOrder(cur)
+  }
+
+  function handleSlotTap(slot) {
+    if (!playable) return
+    const entry = selected[slot]
+    if (!selection) {
+      if (entry) {
+        const next = selected.slice()
+        next[slot] = null
+        setSelected(next)
+      }
+      return
+    }
+    if (selection.source === 'rack') {
+      const letter = rack[selection.idx]
+      if (letter === '_') {
+        setPendingBlank({ slot, srcIdx: selection.idx })
+        return
+      }
+      placeAtSlot(slot, letter, 'rack', selection.idx)
+    } else {
+      const letter = carriedLetters[selection.idx]
+      placeAtSlot(slot, letter, 'carried', selection.idx)
+    }
+  }
+
+  function placeAtSlot(slot, letter, source, srcIdx) {
+    const next = selected.slice()
+    next[slot] = { source, idx: srcIdx, letter }
+    setSelected(next)
+    setSelection(null)
+  }
+
+  function handleBlankPick(letter) {
+    if (!pendingBlank) return
+    const { slot, srcIdx } = pendingBlank
+    setPendingBlank(null)
+    if (!letter) return
+    placeAtSlot(slot, letter, 'rack', srcIdx)
+  }
+
+  function handleShuffle() {
+    if (!playable) return
+    const cur = order.slice()
+    const selectedSet = new Set([...usedRackIdxs])
+    const freePositions = cur.map((_, p) => p).filter(p => !selectedSet.has(cur[p]))
+    const freeValues = freePositions.map(p => cur[p])
+    for (let i = freeValues.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[freeValues[i], freeValues[j]] = [freeValues[j], freeValues[i]]
+    }
+    freePositions.forEach((p, k) => { cur[p] = freeValues[k] })
+    setRackOrder(cur)
+  }
+
+  async function doSubmit() {
+    if (!playable) return
+    if (hasGap) { setStatus({ text: 'Fill the empty slot(s) before submitting.', tone: 'bad' }); return }
+    if (currentWord.length < MIN_WORD_LEN) {
+      setStatus({ text: `Too short. Minimum ${MIN_WORD_LEN} letters.`, tone: 'bad' })
+      return
+    }
+    if (nextRungNumber > 1 && carriedUsed < CARRY_REQUIRED) {
+      setStatus({ text: `Use at least ${CARRY_REQUIRED} carried letters (you used ${carriedUsed}).`, tone: 'bad' })
+      return
+    }
+    const sources = selected.filter(Boolean).map(e => e.source === 'carried' ? 0 : (e.idx + 1))
+    setSubmitting(true)
+    setStatus({ text: 'Submitting…', tone: 'ok' })
+    try {
+      const score = await submitRung(gameId, currentWord, sources)
+      setStatus({ text: `✓ ${currentWord} +${score}`, tone: 'ok' })
+      clearWord()
+    } catch (e) {
+      setStatus({ text: e.message ?? String(e), tone: 'bad' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function doSkip() {
+    if (!playable) return
+    setSubmitting(true)
+    setStatus({ text: 'Skipping…', tone: 'ok' })
+    try {
+      await skipTurn(gameId)
+      setStatus({ text: 'Turn skipped.', tone: 'ok' })
+      clearWord()
+    } catch (e) {
+      setStatus({ text: e.message ?? String(e), tone: 'bad' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function doGiveUp() {
+    if (!game || game.status !== 'active' || submitting) return
+    if (!giveUpArmed) {
+      setGiveUpArmed(true)
+      giveUpTimer.current = setTimeout(() => setGiveUpArmed(false), 2500)
+      return
+    }
+    clearTimeout(giveUpTimer.current)
+    setGiveUpArmed(false)
+    setSubmitting(true)
+    giveUpMatch(gameId)
+      .catch(e => setStatus({ text: e.message ?? String(e), tone: 'bad' }))
+      .finally(() => setSubmitting(false))
+  }
+
+  // ── render ──────────────────────────────────────────────────
+  if (loading) {
+    return <main className="max-w-[480px] mx-auto px-4 py-6 text-center text-rungles-700 dark:text-rungles-200">Loading match…</main>
+  }
+  if (loadError) {
+    return (
+      <main className="max-w-[480px] mx-auto px-4 py-6">
+        <button type="button" className="btn-secondary mb-3" onClick={onLeave}>← Menu</button>
+        <div className="card text-rose-700">Couldn't load match: {loadError}</div>
+      </main>
+    )
+  }
+
+  if (game?.status === 'waiting') {
+    return (
+      <main className="max-w-[480px] mx-auto px-4 py-6 space-y-4">
+        <button type="button" className="btn-secondary" onClick={onLeave}>← Menu</button>
+        <div className="card text-center">
+          <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-1">
+            Waiting room
+          </h2>
+          <p className="text-sm text-rungles-700 dark:text-rungles-300 mb-2">
+            Waiting for opponent…
+          </p>
+          <p className="text-xs text-rungles-500">
+            Players: {players.map(p => p.username).join(', ') || '—'}
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  const lastRung = rungs.length > 0 ? rungs[rungs.length - 1] : null
+  const lastPrev = lastRung
+    ? (lastRung.rung_number === 1 ? (game?.seed_word ?? '') : rungs[rungs.length - 2]?.word ?? '')
+    : null
+  const lastWho = lastRung
+    ? (lastRung.player_user_id === myUserId ? 'You' : (opponent?.username ?? 'Opponent'))
+    : null
+  const isComplete = game?.status === 'complete'
+
+  return (
+    <main className="max-w-[480px] mx-auto px-4 py-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <button type="button" className="btn-secondary text-sm" onClick={onLeave}>← Menu</button>
+        <span className="text-sm font-display text-rungles-700 dark:text-rungles-200">
+          Rung {Math.min(nextRungNumber, totalRungs)} / {totalRungs}
+        </span>
+      </div>
+
+      <section className="card !p-3 space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="font-display text-sm text-rungles-700 dark:text-rungles-200">
+            You: {me?.score ?? 0}
+          </span>
+          <span className="font-display text-sm text-rungles-700 dark:text-rungles-200">
+            {opponent?.username ?? 'Opponent'}: {opponent?.score ?? 0}
+          </span>
+        </div>
+        <div className="text-center text-sm">
+          {isComplete ? (
+            <span className="font-bold text-rungles-700 dark:text-rungles-200">
+              {game.winner_player_idx === me?.playerIdx ? '🎉 You won!' : `${opponent?.username ?? 'Opponent'} won.`}
+            </span>
+          ) : myTurn ? (
+            <span className="font-bold text-green-700 dark:text-green-300">Your turn</span>
+          ) : (
+            <span className="text-rungles-500">Waiting for {opponent?.username ?? 'opponent'}…</span>
+          )}
+        </div>
+      </section>
+
+      {status.text && (
+        <div
+          role="status"
+          className={`text-sm font-semibold rounded-lg px-3 py-2 ${
+            status.tone === 'ok'
+              ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-200'
+              : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200'
+          }`}
+        >
+          {status.text}
+        </div>
+      )}
+
+      <section className="card !p-3 min-h-[44px]" aria-label="Rungs played">
+        {!lastRung ? (
+          <p className="text-sm text-rungles-500 italic">No rungs yet — first move starts the ladder.</p>
+        ) : (
+          <>
+            <MultiLadderRow
+              rung={lastRung}
+              prevWord={lastPrev}
+              label={`Rung ${lastRung.rung_number} (${lastWho})`}
+              onClick={rungs.length > 1 ? () => setHistoryOpen(true) : undefined}
+            />
+            {game?.seed_word && <SeedRow word={game.seed_word} />}
+          </>
+        )}
+      </section>
+
+      {!isComplete && (
+        <>
+          <section className="card !p-3 space-y-2" aria-label="Current rung">
+            <div className="text-xs text-rungles-500 dark:text-rungles-400">
+              {premiumPos ? `2× slot: position ${premiumPos}` : '2× slot: —'}
+            </div>
+            <div className="flex justify-center gap-1">
+              {Array.from({ length: MAX_WORD_LEN }, (_, slot) => {
+                const entry = selected[slot]
+                const isPremium = (slot + 1) === premiumPos
+                if (entry) {
+                  const isPremiumHit = isPremium && entry.source === 'rack'
+                  return (
+                    <Tile
+                      key={slot}
+                      letter={entry.letter}
+                      variant="in-word"
+                      premium={isPremiumHit}
+                      carried={entry.source === 'carried'}
+                      onClick={() => handleSlotTap(slot)}
+                      disabled={!playable}
+                    />
+                  )
+                }
+                return (
+                  <EmptySlot
+                    key={slot}
+                    premium={isPremium}
+                    onClick={() => handleSlotTap(slot)}
+                    ariaLabel={`Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`}
+                  />
+                )
+              })}
+            </div>
+
+            <div className="flex items-center justify-end text-xs">
+              <span className={`font-display text-rungles-700 dark:text-rungles-200 ${previewPts != null ? 'opacity-100' : 'opacity-0'}`}>
+                {previewPts != null ? `+${previewPts} pts` : ''}
+              </span>
+            </div>
+
+            <div className="min-h-[28px]">
+              {carriedLetters.length === 0 ? (
+                <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-rungles-600 dark:text-rungles-300">
+                    {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
+                  </span>
+                  <div className="flex gap-1">
+                    {carriedLetters.map((letter, idx) => {
+                      const used = usedCarriedIdxs.has(idx)
+                      return (
+                        <Tile
+                          key={idx}
+                          letter={letter}
+                          variant="small"
+                          carried
+                          ghost={used}
+                          selected={selectionMatches('carried', idx)}
+                          onClick={() => !used && handleSourceTap('carried', idx)}
+                          disabled={!playable}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="card !p-3" aria-label="Your tile rack">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+              {order.map(serverIdx => {
+                const letter = rack[serverIdx]
+                const inWord = usedRackIdxs.has(serverIdx)
+                return (
+                  <Tile
+                    key={serverIdx}
+                    letter={letter}
+                    ghost={inWord}
+                    selected={selectionMatches('rack', serverIdx)}
+                    onClick={() => !inWord && handleSourceTap('rack', serverIdx)}
+                    disabled={!playable}
+                  />
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="grid grid-cols-5 gap-2">
+            <ActionButton emoji="✅" label="Submit" onClick={doSubmit} variant="primary" disabled={!playable || filled === 0} />
+            <ActionButton emoji="↩️" label="Clear" onClick={clearWord} disabled={!playable || (filled === 0 && !selection)} />
+            <ActionButton emoji="🔀" label="Shuffle" onClick={handleShuffle} disabled={!playable} />
+            <ActionButton emoji="⏩" label="Skip" onClick={doSkip} disabled={!playable} />
+            <ActionButton
+              emoji="🏳️"
+              label={giveUpArmed ? 'Confirm?' : 'Give Up'}
+              onClick={doGiveUp}
+              variant="danger"
+              disabled={submitting}
+            />
+          </section>
+        </>
+      )}
+
+      {isComplete && (
+        <button
+          type="button"
+          className="btn-primary w-full"
+          onClick={() => setEndgameOpen(true)}
+        >
+          🏁 Show final score
+        </button>
+      )}
+
+      <BlankPickerModal
+        open={!!pendingBlank}
+        onPick={handleBlankPick}
+        onCancel={() => handleBlankPick(null)}
+      />
+      <MultiHistoryModal
+        open={historyOpen}
+        rungs={rungs}
+        seedWord={game?.seed_word}
+        myUserId={myUserId}
+        opponentName={opponent?.username ?? 'Opponent'}
+        onClose={() => setHistoryOpen(false)}
+      />
+      <MultiEndGameModal
+        open={endgameOpen}
+        rungs={rungs}
+        seedWord={game?.seed_word}
+        me={me}
+        opponent={opponent}
+        winnerPlayerIdx={game?.winner_player_idx}
+        onBackToLobby={() => { setEndgameOpen(false); onLeave() }}
+        onClose={() => setEndgameOpen(false)}
+      />
+    </main>
+  )
+}
+
+function ActionButton({ emoji, label, onClick, variant, disabled }) {
+  const cls =
+    variant === 'primary' ? 'btn-primary'
+    : variant === 'danger' ? 'btn-danger'
+    : 'btn-secondary'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`${cls} flex flex-col items-center justify-center !px-1 !py-2 text-xs leading-tight gap-0.5`}
+    >
+      <span className="text-lg leading-none">{emoji}</span>
+      <span>{label}</span>
+    </button>
+  )
+}
