@@ -16,7 +16,7 @@ desktop.ini
 # Local Claude Code state
 .claude/
 
-# Build artefacts (none yet, but reserved)
+# Build artefacts
 node_modules/
 dist/
 build/
