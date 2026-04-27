@@ -1,25 +1,18 @@
-// Service worker for PWA installability + update notification.
+// Service worker for PWA installability + push notifications.
 // Bump CACHE_VERSION on every deploy that changes user-visible code so the
-// browser detects the SW as new and installs it in the waiting state. The
-// page (sw-update.js) listens for that, shows a banner, and lets the user
-// trigger SKIP_WAITING when they're ready to reload into the new version.
+// browser detects the SW as new and activates it. Phase 4 of the React port
+// switches to skipWaiting + clients.claim so users get the new version on
+// the first reload after install — no two-reload dance.
 
-const CACHE_VERSION = 'rungles-v6';
+const CACHE_VERSION = 'rungles-v7';
 
-self.addEventListener('install', () => {
-  // Intentionally NOT calling skipWaiting() — wait for the page to ask. That
-  // way the user controls when an update lands instead of getting reloaded
-  // mid-turn.
+self.addEventListener('install', (event) => {
+  // Take over from the previous SW immediately on the next reload.
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });
 
 // Pass-through fetch handler — required for the install prompt criteria.
@@ -45,7 +38,6 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(wins => {
-      // Don't re-alert if the user is already looking at the specific game page.
       const targetUrl = data.url || '';
       const focused = wins.some(c =>
         c.visibilityState === 'visible' && c.focused
@@ -57,7 +49,6 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Tapping a notification focuses the right tab (or opens one).
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/rungles/';
