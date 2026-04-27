@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background-color: #faf5ff;
+  color: #3b0764;
+}
+
+.dark body {
+  background-color: #1a1130;
+  color: #f3e8ff;
+}
+
+/* SQ dropdown-surface treatment — see rae-side-quest/docs/sq-conventions.md */
+.dropdown-surface {
+  background-color: #fff;
+  border: 1px solid #e9d5ff;
+}
+.dark .dropdown-surface {
+  background-color: #241640 !important;
+  border-color: #6d28d9 !important;
+}

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+  <title>Rungles</title>
+
+  <!-- PWA: installable as an app on iOS / Android home screens -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
+  <meta name="theme-color" content="#c99be5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Rungles" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script>
+    // Pre-paint hints: applied synchronously to <html> before any element
+    // renders, so neither the auth gate nor the light theme flashes for users
+    // who are already authed / prefer dark.
+    (function () {
+      try {
+        var key = 'sb-yyhewndblruwxsrqzart-auth-token';
+        document.documentElement.dataset.prepaint =
+          localStorage.getItem(key) ? 'authed' : 'anon';
+      } catch (e) {
+        document.documentElement.dataset.prepaint = 'anon';
+      }
+      try {
+        if (localStorage.getItem('rungles-theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="app-brand">
+        <div class="avatar-wrap authed-only hidden">
+          <button class="avatar-btn" type="button" aria-label="Profile and stats" aria-haspopup="true" aria-expanded="false">
+            <span class="avatar-initials">--</span>
+          </button>
+          <div class="avatar-dropdown hidden" role="menu">
+            <div class="avatar-dropdown-header">
+              <span class="avatar-preview"></span>
+              <div class="avatar-dropdown-identity">
+                <div class="avatar-dropdown-name">…</div>
+                <div class="avatar-dropdown-sub">Your profile</div>
+              </div>
+            </div>
+            <button class="avatar-dropdown-item avatar-stats-btn" type="button" role="menuitem">📊 Stats</button>
+          </div>
+        </div>
+        <h1 class="app-title font-display">Rungles</h1>
+      </div>
+      <div class="header-actions">
+        <a class="icon-btn" href="/games/" aria-label="Rae's Side Quest" title="Rae's Side Quest">🏠</a>
+        <button class="icon-btn btn-rules anon-only" type="button" aria-label="How to play">❔</button>
+        <div class="settings-wrap authed-only hidden">
+          <button class="icon-btn settings-toggle" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false">⚙️</button>
+          <div class="settings-dropdown hidden" role="menu">
+            <div class="settings-row">
+              <span class="settings-label">How to play</span>
+              <button class="settings-action btn-rules" type="button">Open</button>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Theme</span>
+              <button class="settings-action theme-toggle" type="button">🌙 Dark</button>
+            </div>
+            <div class="settings-row">
+              <button class="settings-action settings-logout" type="button">Log out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="landing hidden">
+      <div class="rg-notif-mount" aria-live="polite"></div>
+
+      <section class="card landing-solo">
+        <h2 class="card-heading font-display">🎯 Solo</h2>
+        <p class="card-sub">Climb a 7-rung ladder on your own.</p>
+        <button class="btn btn-primary play-solo" type="button">▶ Play Solo</button>
+      </section>
+
+      <section class="card landing-multi">
+        <h2 class="card-heading font-display">🪜 Multiplayer</h2>
+        <p class="card-sub">Create a game or jump into an open one.</p>
+        <button class="btn btn-primary lobby-create" type="button">✨ Create game</button>
+        <div class="lobby-list" aria-live="polite"></div>
+        <div class="lobby-empty hidden">
+          <div class="empty-icon">🟣</div>
+          <p class="empty-text font-display">No open games yet — create one!</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="solo-mode hidden">
+    <div class="mode-topbar">
+      <button class="menu-back" type="button" aria-label="Back to menu">← Menu</button>
+    </div>
+    <section class="game-info" aria-live="polite">
+      <span class="info-rung">Rung 1 / 7</span>
+      <span class="info-score">Score: 0</span>
+    </section>
+
+    <div class="status-banner" role="status" aria-live="polite"></div>
+
+    <section class="ladder" aria-label="Previous rungs">
+      <p class="ladder-empty">Your played words will appear here.</p>
+    </section>
+
+    <section class="current-rung" aria-label="Current rung">
+      <div class="word-input" aria-label="Word being built">
+        <span class="word-placeholder">Tap tiles to build a word</span>
+      </div>
+      <button class="hint-btn" type="button" aria-label="Get a hint (costs 5 points)">💡 Hint <span class="hint-cost">(−5)</span></button>
+      <div class="carried-letters" aria-label="Letters carried from previous rung"></div>
+      <div class="solo-preview score-preview" aria-live="polite"></div>
+    </section>
+
+    <section class="rack" aria-label="Your tile rack">
+      <div class="rack-tiles">
+        <!-- Tile placeholders -->
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+        <div class="tile" aria-hidden="true">?</div>
+      </div>
+    </section>
+
+    <section class="actions actions-icons">
+      <button class="btn-icon btn-icon-primary btn-primary" type="button">
+        <span class="btn-icon-emoji">✅</span>
+        <span class="btn-icon-label">Submit</span>
+      </button>
+      <button class="btn-icon btn-clear" type="button">
+        <span class="btn-icon-emoji">↩️</span>
+        <span class="btn-icon-label">Clear</span>
+      </button>
+      <button class="btn-icon btn-secondary" type="button">
+        <span class="btn-icon-emoji">🔀</span>
+        <span class="btn-icon-label">Shuffle</span>
+      </button>
+      <button class="btn-icon btn-icon-danger btn-danger" type="button">
+        <span class="btn-icon-emoji">🏳️</span>
+        <span class="btn-icon-label">Give Up</span>
+      </button>
+    </section>
+    <!-- Hidden: New Game is reachable via Give Up → endgame modal "Play Again". -->
+    <button class="btn-newgame hidden" type="button" aria-hidden="true"></button>
+    </div><!-- /.solo-mode -->
+
+    <div class="multi-mode hidden">
+      <section class="waiting-room hidden">
+        <h2 class="multi-h2">Waiting room</h2>
+        <p class="waiting-message">Waiting for opponent…</p>
+        <button class="btn btn-secondary waiting-leave" type="button">← Menu</button>
+      </section>
+
+      <section class="match-mode hidden">
+        <div class="match-topbar">
+          <button class="match-back" type="button" aria-label="Back to menu">← Menu</button>
+          <div class="match-rung-info"></div>
+        </div>
+        <div class="match-header">
+          <div class="match-scores">
+            <span class="match-score-you">You: 0</span>
+            <span class="match-score-opp">Opponent: 0</span>
+          </div>
+          <div class="match-turn"></div>
+        </div>
+
+        <div class="match-status" role="status" aria-live="polite"></div>
+
+        <section class="match-ladder" aria-label="Rungs played"></section>
+
+        <section class="match-current" aria-label="Current rung">
+          <div class="match-premium"></div>
+          <div class="match-word-input word-input" aria-label="Word being built"></div>
+          <div class="match-carried carried-letters" aria-label="Letters carried from previous rung"></div>
+          <div class="match-preview score-preview" aria-live="polite"></div>
+        </section>
+
+        <section class="match-rack rack" aria-label="Your tile rack">
+          <div class="match-rack-tiles rack-tiles"></div>
+        </section>
+
+        <button class="match-final-pill hidden" type="button" aria-label="Show final score">
+          🏁 Show final score
+        </button>
+
+        <div class="match-actions actions actions-icons">
+          <button class="btn-icon btn-icon-primary match-submit" type="button">
+            <span class="btn-icon-emoji">✅</span>
+            <span class="btn-icon-label">Submit</span>
+          </button>
+          <button class="btn-icon match-clear" type="button">
+            <span class="btn-icon-emoji">↩️</span>
+            <span class="btn-icon-label">Clear</span>
+          </button>
+          <button class="btn-icon match-shuffle" type="button">
+            <span class="btn-icon-emoji">🔀</span>
+            <span class="btn-icon-label">Shuffle</span>
+          </button>
+          <button class="btn-icon match-skip" type="button">
+            <span class="btn-icon-emoji">⏩</span>
+            <span class="btn-icon-label">Skip</span>
+          </button>
+          <button class="btn-icon btn-icon-danger match-giveup" type="button">
+            <span class="btn-icon-emoji">🏳️</span>
+            <span class="btn-icon-label">Give Up</span>
+          </button>
+        </div>
+      </section>
+    </div><!-- /.multi-mode -->
+  </div>
+
+  <dialog class="blank-modal" aria-label="Pick a letter for the blank tile">
+    <div class="modal-card">
+      <h2 class="modal-title">Blank tile — pick a letter</h2>
+      <p class="modal-sub">Once chosen, this tile is locked as that letter.</p>
+      <div class="letter-grid"></div>
+      <button class="btn btn-secondary modal-dismiss" type="button">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog class="rules-modal" aria-label="How to play">
+    <div class="modal-card rules-card">
+      <h2 class="modal-title">How to Play Rungles</h2>
+
+      <h3 class="rules-h3">The goal</h3>
+      <p>Build a ladder of connected words. Each word is a "rung." Solo is 7 rungs; multiplayer is 10 (5 each).</p>
+
+      <h3 class="rules-h3">Each rung</h3>
+      <ul class="rules-list">
+        <li>You have a rack of 7 letter tiles drawn from a Scrabble-style bag.</li>
+        <li>Your word must be <strong>4 to 7 letters</strong> and in the dictionary.</li>
+        <li>Every rung after the first must use at least <strong>3 letters</strong> carried from the previous word. Carried letters are shown in gray and are free — they don't consume your rack tiles.</li>
+        <li><strong>Solo rung 1:</strong> no carryover, pick any valid word from your rack.</li>
+        <li><strong>Multiplayer rung 1:</strong> the game gives you a seed word, and rung 1 must carry 3+ letters from it just like every other rung.</li>
+        <li>Your rack refills back to 7 tiles after every rung.</li>
+      </ul>
+
+      <h3 class="rules-h3">Scoring</h3>
+      <ul class="rules-list">
+        <li>Only <strong>rack letters score</strong>. Carried letters are free, but earn no points.</li>
+        <li><strong>Length bonus:</strong> +2 points per letter beyond 4.</li>
+        <li><strong>2× slot:</strong> each rung has one premium position (shown as a gold slot before you play). If a rack letter lands there, its value is doubled. Carried letters don't trigger it.</li>
+      </ul>
+
+      <h3 class="rules-h3">Example</h3>
+      <p class="rules-example">Rung 1: <strong>STORE</strong> → Rung 2: <strong>TORCH</strong> (T, O, R carried from STORE; C and H from rack).</p>
+
+      <h3 class="rules-h3">Tiles</h3>
+      <ul class="rules-list">
+        <li><strong>Blanks (solo only):</strong> wildcards worth 0 points. Each time you drop a blank into a slot, you pick the letter it plays as for that placement. Move it back to the rack and place it again to pick a different letter. Multiplayer bags don't include blanks.</li>
+        <li>The solo opening rack is always playable (at least one valid word exists).</li>
+      </ul>
+
+      <h3 class="rules-h3">Placing tiles</h3>
+      <ul class="rules-list">
+        <li>The word area has <strong>7 fixed slots</strong> — one per letter of your word.</li>
+        <li><strong>Tap a tile in your rack or carried row</strong> to pick it up (it lifts and glows).</li>
+        <li><strong>Tap any slot in the word area</strong> to drop the tile into that slot.</li>
+        <li>If the slot is already filled, the new tile takes its place and the old one goes back to the rack.</li>
+        <li><strong>Tap a filled slot with nothing selected</strong> to send that tile back to its source (rack or carried row). The slot becomes empty until you fill it.</li>
+        <li><strong>Tap two rack tiles in sequence</strong> to rearrange your rack (the first jumps to the left of the second).</li>
+        <li><strong>Tap the same tile twice</strong> to deselect.</li>
+        <li>You can't submit a word with an empty slot in the middle — fill every slot up to the length of your word first.</li>
+      </ul>
+
+      <h3 class="rules-h3">Buttons</h3>
+      <ul class="rules-list">
+        <li><strong>Submit:</strong> play your word.</li>
+        <li><strong>Clear:</strong> empty the word area.</li>
+        <li><strong>Shuffle:</strong> reorder the rack randomly.</li>
+        <li><strong>💡 Hint (−5 pts, solo only):</strong> reveal one word you could play. Score can go negative.</li>
+        <li><strong>Skip (multiplayer only):</strong> pass your turn if you can't find a word; the other player keeps going.</li>
+        <li><strong>Give Up:</strong> end the game. Tap twice to confirm.</li>
+      </ul>
+
+      <h3 class="rules-h3">Keyboard (solo)</h3>
+      <p>Type a letter to pick it (carried first, then rack). <kbd>Backspace</kbd> removes the last tile. <kbd>Enter</kbd> submits. <kbd>Escape</kbd> deselects, or clears the word area if nothing is selected.</p>
+
+      <h3 class="rules-h3">Multiplayer</h3>
+      <ul class="rules-list">
+        <li>Two players share one ladder. Each has a private rack (hidden from the other); the tile bag is shared.</li>
+        <li>The game starts with a randomly chosen <strong>seed word</strong>. Rung 1 must carry 3+ letters from it, just like every rung after.</li>
+        <li>Players take turns adding rungs: 10 total, 5 each.</li>
+        <li>Only your own rung scores count toward your total.</li>
+        <li>Use <strong>Skip</strong> if you can't form a valid word; play continues without you.</li>
+        <li>The ladder shows the most recent rung; tap it to see the full history including the seed.</li>
+      </ul>
+
+      <button class="btn btn-primary btn-rules-close" type="button">Got it</button>
+    </div>
+  </dialog>
+
+  <dialog class="history-modal" aria-label="Full rung history">
+    <div class="modal-card history-card">
+      <h2 class="modal-title">Ladder so far</h2>
+      <div class="history-rungs"></div>
+      <button class="btn btn-primary modal-dismiss history-close" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <dialog class="stats-modal" aria-label="Solo stats">
+    <div class="modal-card stats-card">
+      <h2 class="modal-title">Stats</h2>
+      <div class="stats-tabs" role="tablist">
+        <button class="stats-tab stats-tab-active" data-tab="me" type="button" role="tab" aria-selected="true">Me</button>
+        <button class="stats-tab" data-tab="board" type="button" role="tab" aria-selected="false">Leaderboard</button>
+      </div>
+      <div class="stats-body stats-body-me">
+        <p class="stats-loading">Loading…</p>
+      </div>
+      <div class="stats-body stats-body-board hidden">
+        <p class="stats-loading">Loading…</p>
+      </div>
+      <button class="btn btn-primary modal-dismiss stats-close" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <dialog class="endgame-modal" aria-label="Game complete">
+    <div class="modal-card endgame-card">
+      <h2 class="endgame-title">Ladder Complete!</h2>
+      <p class="endgame-score">Final score</p>
+      <p class="endgame-number">0</p>
+      <div class="endgame-rungs"></div>
+      <button class="btn btn-primary btn-playagain" type="button">Play Again</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="js/game.js?v=29"></script>
+  <script type="module">
+    import { initMultiplayer } from './js/multiplayer.js?v=29';
+    document.addEventListener('DOMContentLoaded', initMultiplayer);
+  </script>
+  <script src="js/sw-update.js?v=29"></script>
+  <script>
+    // Dark mode toggle + settings dropdown wiring.
+    document.addEventListener('DOMContentLoaded', () => {
+      const html = document.documentElement;
+      const themeBtn = document.querySelector('.theme-toggle');
+      if (themeBtn) {
+        const syncLabel = () => {
+          themeBtn.textContent = html.classList.contains('dark') ? '☀️ Light' : '🌙 Dark';
+        };
+        syncLabel();
+        themeBtn.addEventListener('click', () => {
+          const nowDark = !html.classList.contains('dark');
+          html.classList.toggle('dark', nowDark);
+          try { localStorage.setItem('rungles-theme', nowDark ? 'dark' : 'light'); } catch (e) {}
+          syncLabel();
+        });
+      }
+
+      const wrap = document.querySelector('.settings-wrap');
+      const toggle = wrap?.querySelector('.settings-toggle');
+      const menu = wrap?.querySelector('.settings-dropdown');
+      if (!wrap || !toggle || !menu) return;
+
+      const close = () => {
+        menu.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+      };
+      const open = () => {
+        menu.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+      };
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.contains('hidden') ? open() : close();
+      });
+      document.addEventListener('click', (e) => {
+        if (!wrap.contains(e.target)) close();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+      });
+      // Close after any row action fires (rules/theme/logout all live inside).
+      menu.addEventListener('click', (e) => {
+        if (e.target.closest('.settings-action')) close();
+      });
+    });
+  </script>
+</body>
+</html>
