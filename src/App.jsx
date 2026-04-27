@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import RunglesHeader from './components/RunglesHeader.jsx'
+import LandingPage from './components/LandingPage.jsx'
 import { supabase } from './lib/supabase.js'
-import { loadDictionary, dictionarySize } from './lib/dictionary.js'
+import { loadDictionary } from './lib/dictionary.js'
 
 function redirectToSqLogin() {
   const ret = window.location.pathname + window.location.search
@@ -13,8 +14,11 @@ function redirectToSqLogin() {
 
 function AppInner() {
   const [boot, setBoot] = useState('checking')   // 'checking' | 'ready'
+  const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [dictReady, setDictReady] = useState(false)
+  // view: 'landing' | 'solo' | 'multi'
+  const [view, setView] = useState('landing')
+  const [currentGameId, setCurrentGameId] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -22,10 +26,8 @@ function AppInner() {
       const { data } = await supabase.auth.getSession()
       if (!alive) return
       if (!data.session) {
-        // Dev escape hatch: standalone Vite has no hub to redirect to.
-        // Render with a stub profile so we can verify UI in isolation.
-        // Production (and the hub-fronted dev:all flow) still gates strictly.
         if (import.meta.env.DEV) {
+          setSession({ user: { id: '00000000-0000-0000-0000-000000000000', email: 'dev@local' } })
           setProfile({ username: 'dev-user', avatar_hue: 270 })
           setBoot('ready')
           return
@@ -33,6 +35,7 @@ function AppInner() {
         redirectToSqLogin()
         return
       }
+      setSession(data.session)
       const userId = data.session.user.id
       const { data: prof } = await supabase
         .from('profiles')
@@ -43,9 +46,21 @@ function AppInner() {
       setProfile(prof ?? { username: data.session.user.email, avatar_hue: 270 })
       setBoot('ready')
     })()
-    loadDictionary().then(() => alive && setDictReady(true)).catch(() => {})
+    loadDictionary().catch(() => {})
     return () => { alive = false }
   }, [])
+
+  // Deep-link: ?game=<id> jumps straight into multiplayer.
+  useEffect(() => {
+    if (boot !== 'ready') return
+    const params = new URLSearchParams(window.location.search)
+    const gameId = params.get('game')
+    if (gameId) {
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+      setCurrentGameId(gameId)
+      setView('multi')
+    }
+  }, [boot])
 
   if (boot === 'checking') {
     return (
@@ -62,20 +77,59 @@ function AppInner() {
         onAvatarClick={() => { /* Phase 3e */ }}
         onSettingsClick={() => { /* Phase 3e */ }}
       />
-      <main className="max-w-[480px] mx-auto px-4 py-6 space-y-4">
-        <section className="bg-white rounded-xl p-4 shadow-tile dark:bg-[#241640] dark:border dark:border-[#6d28d9]">
-          <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-2">
-            Phase 3a — Header ✓
-          </h2>
-          <p className="text-sm text-rungles-700 dark:text-rungles-300">
-            Signed in as <span className="font-semibold">{profile?.username}</span>.
-            Dictionary: {dictReady ? `${dictionarySize().toLocaleString()} words ready` : 'loading…'}.
-          </p>
-          <p className="text-xs text-rungles-500 dark:text-rungles-400 mt-2">
-            Landing, solo, multi, and dropdowns land in Phases 3b–3e.
-          </p>
-        </section>
-      </main>
+
+      {view === 'landing' && (
+        <LandingPage
+          profile={profile}
+          myUserId={session?.user?.id}
+          onPlaySolo={() => setView('solo')}
+          onEnterGame={(gameId) => { setCurrentGameId(gameId); setView('multi') }}
+        />
+      )}
+
+      {view === 'solo' && (
+        <main className="max-w-[480px] mx-auto px-4 py-6">
+          <button
+            type="button"
+            className="btn-secondary mb-4"
+            onClick={() => setView('landing')}
+          >
+            ← Menu
+          </button>
+          <div className="card">
+            <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-2">
+              Solo game (Phase 3c)
+            </h2>
+            <p className="text-sm text-rungles-700 dark:text-rungles-300">
+              Solo gameplay lands in Phase 3c.
+            </p>
+          </div>
+        </main>
+      )}
+
+      {view === 'multi' && (
+        <main className="max-w-[480px] mx-auto px-4 py-6">
+          <button
+            type="button"
+            className="btn-secondary mb-4"
+            onClick={() => { setCurrentGameId(null); setView('landing') }}
+          >
+            ← Menu
+          </button>
+          <div className="card">
+            <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-2">
+              Multi game (Phase 3d)
+            </h2>
+            <p className="text-sm text-rungles-700 dark:text-rungles-300">
+              Game id: <code>{currentGameId}</code>
+            </p>
+            <p className="text-xs text-rungles-500 dark:text-rungles-400 mt-2">
+              Multiplayer match UI lands in Phase 3d.
+            </p>
+          </div>
+        </main>
+      )}
+
       <Toaster position="top-center" />
     </div>
   )
