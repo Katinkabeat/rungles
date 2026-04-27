@@ -103,6 +103,8 @@ Build each in React, A/B compare against legacy at localhost:5176 (or whatever p
 - [ ] **3a — Header** (`<RunglesHeader>`): avatar slot + title + 🏠 + ⚙️. Implements the dropdown-surface treatment from sq-conventions.md. Reference: Wordy's `LobbyPage.jsx` header section.
 - [ ] **3b — Landing** (`<LandingPage>`): solo card, multi card, lobby list (live-subscribed), empty state. Reference: legacy `index.html` `.landing` block.
 - [ ] **3c — Solo game** (`<SoloGamePage>`): mode-topbar, game-info, ladder, current-rung, word-input, carried-letters, score-preview, tile rack.
+  - **Picks up at:** `js/game.js` (1069 lines) is the source. Recommended split: extract pure reducers + selectors (rung state, word-build, scoring) into `src/lib/soloGame.js` first; then build React UI on top. The UI mirrors the legacy `.solo-mode` block in `index.legacy.html` (lines 106–162). Save/load contract: localStorage key `rungles:solo:v1` — keep the same shape so existing saves survive the cutover (or accept that solo-in-progress games reset; they're not multiplayer-shared).
+  - Specific items to faithfully port: `pickPremiumPos` (one slot per rung gets a 2x marker), `pickBlankLetter` modal (blank locks to chosen letter for the rest of the game), hint button (`HINT_COST = 5`, finds any valid play from rack+carried), word build interactions (tap rack tile → fill first empty slot; tap word slot → return to rack/carried), reorder rack (drag), endgame modal with "Play Again".
 - [ ] **3d — Multi game** (`<MultiGamePage>`): everything in 3c plus player chip strip, turn indicator, nudge button, status banner.
 - [ ] **3e — Avatar/Settings dropdowns + stats popup**: identity card, Stats link, theme toggle, Admin (gated via `admins` table), Log out.
 
