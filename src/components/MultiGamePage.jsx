@@ -351,7 +351,13 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
   return (
     <main className="max-w-[480px] mx-auto px-4 py-3 flex flex-col min-h-[calc(100vh-64px)]">
       <div className="flex items-center justify-between mb-2">
-        <button type="button" className="btn-secondary text-sm" onClick={onLeave}>← Menu</button>
+        <button
+          type="button"
+          onClick={onLeave}
+          className="text-rungles-400 hover:text-rungles-700 dark:hover:text-rungles-300 text-sm font-bold"
+        >
+          ← Lobby
+        </button>
         <span className="text-sm font-display text-rungles-700">
           Rung {Math.min(nextRungNumber, totalRungs)} / {totalRungs}
         </span>
@@ -390,6 +396,21 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
         >
           {status.text}
         </div>
+      )}
+
+      {/* Last played word + seed live above the play area. */}
+      {(lastRung || game?.seed_word) && (
+        <section className="card !p-3 mb-2" aria-label="Previous rung">
+          {lastRung && (
+            <MultiLadderRow
+              rung={lastRung}
+              prevWord={lastPrev}
+              label={`Rung ${lastRung.rung_number} (${lastWho})`}
+              onClick={rungs.length > 1 ? () => setHistoryOpen(true) : undefined}
+            />
+          )}
+          {game?.seed_word && <SeedRow word={game.seed_word} />}
+        </section>
       )}
 
       {!isComplete && (
@@ -432,58 +453,38 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
             </span>
           </div>
 
-          <div className="space-y-1">
-            {carriedLetters.length === 0 ? (
-              <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-rungles-600 dark:text-rungles-300">
-                  {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
-                </span>
-                <div className="flex gap-1">
-                  {carriedLetters.map((letter, idx) => {
-                    const used = usedCarriedIdxs.has(idx)
-                    return (
-                      <Tile
-                        key={idx}
-                        letter={letter}
-                        variant="small"
-                        carried
-                        ghost={used}
-                        selected={selectionMatches('carried', idx)}
-                        onClick={() => !used && handleSourceTap('carried', idx)}
-                        disabled={!playable}
-                      />
-                    )
-                  })}
-                </div>
+          {carriedLetters.length === 0 ? (
+            <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-rungles-600 dark:text-rungles-300">
+                {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
+              </span>
+              <div className="flex gap-1">
+                {carriedLetters.map((letter, idx) => {
+                  const used = usedCarriedIdxs.has(idx)
+                  return (
+                    <Tile
+                      key={idx}
+                      letter={letter}
+                      variant="small"
+                      carried
+                      ghost={used}
+                      selected={selectionMatches('carried', idx)}
+                      onClick={() => !used && handleSourceTap('carried', idx)}
+                      disabled={!playable}
+                    />
+                  )
+                })}
               </div>
-            )}
-
-            {/* Last played word + seed live on their own line below the carried strip. */}
-            {lastRung && (
-              <div className="pt-1 border-t border-rungles-100 dark:border-rungles-900">
-                <MultiLadderRow
-                  rung={lastRung}
-                  prevWord={lastPrev}
-                  label={`Rung ${lastRung.rung_number} (${lastWho})`}
-                  onClick={rungs.length > 1 ? () => setHistoryOpen(true) : undefined}
-                />
-                {game?.seed_word && <SeedRow word={game.seed_word} />}
-              </div>
-            )}
-            {!lastRung && game?.seed_word && (
-              <div className="pt-1 border-t border-rungles-100 dark:border-rungles-900">
-                <SeedRow word={game.seed_word} />
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </section>
       )}
 
       {!isComplete && (
         <section className="card !p-3 mb-2" aria-label="Your tile rack">
-          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+          <div className="flex items-center justify-center gap-1 flex-nowrap">
             {order.map(serverIdx => {
               const letter = rack[serverIdx]
               const inWord = usedRackIdxs.has(serverIdx)

@@ -20,12 +20,13 @@ export default function Tile({
   const value = LETTER_VALUES[letter] ?? 0
   const isBlank = letter === '_'
 
+  // Sizes match Wordy's TileRack so 7 fit on a single line at 480px max-width.
   const sizeClass =
     variant === 'small'
       ? 'w-8 h-9 text-base'
       : variant === 'in-word'
       ? 'w-10 h-11 text-lg'
-      : 'w-11 h-12 text-xl'
+      : 'w-10 h-11 text-lg'
 
   const stateClasses = [
     sizeClass,
@@ -42,7 +43,7 @@ export default function Tile({
       onClick={onClick}
       disabled={disabled || ghost}
       aria-label={ariaLabel ?? (isBlank ? 'Blank tile' : `Tile ${letter}, ${value} points`)}
-      className={stateClasses}
+      className={`${stateClasses} shrink-0`}
     >
       <span>{isBlank ? '' : letter}</span>
       {value > 0 && <span className="tile-value">{value}</span>}
@@ -57,7 +58,7 @@ export function EmptySlot({ premium = false, onClick, ariaLabel }) {
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`w-10 h-11 tile-empty ${premium ? 'tile-empty-premium' : ''}`}
+      className={`w-10 h-11 tile-empty shrink-0 ${premium ? 'tile-empty-premium' : ''}`}
     >
       {premium ? '2×' : ''}
     </button>

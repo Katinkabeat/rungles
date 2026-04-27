@@ -190,7 +190,13 @@ export default function SoloGamePage({ onBack }) {
   return (
     <main className="max-w-[480px] mx-auto px-4 py-3 flex flex-col min-h-[calc(100vh-64px)]">
       <div className="flex items-center justify-between mb-2">
-        <button type="button" className="btn-secondary text-sm" onClick={onBack}>← Menu</button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-rungles-400 hover:text-rungles-700 dark:hover:text-rungles-300 text-sm font-bold"
+        >
+          ← Lobby
+        </button>
         <span className="font-display text-sm text-rungles-700">
           Rung {Math.min(state.rungNumber, TOTAL_RUNGS)} / {TOTAL_RUNGS}
         </span>
@@ -212,6 +218,17 @@ export default function SoloGamePage({ onBack }) {
         >
           {banner.text}
         </div>
+      )}
+
+      {/* Last played word sits above the play area. */}
+      {lastRung && (
+        <section className="card !p-3 mb-2" aria-label="Previous rung">
+          <LadderRow
+            rung={lastRung}
+            label={`Rung ${state.ladder.length}`}
+            onClick={state.ladder.length > 1 ? () => setHistoryOpen(true) : undefined}
+          />
+        </section>
       )}
 
       <section className="card !p-3 space-y-2 mb-2" aria-label="Current rung">
@@ -257,48 +274,35 @@ export default function SoloGamePage({ onBack }) {
           </span>
         </div>
 
-        <div className="space-y-1">
-          {state.carried.length === 0 ? (
-            <p className="text-xs text-rungles-500 italic">Carried: — (rung 1: no carryover)</p>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-rungles-600 dark:text-rungles-300">
-                Carried (need {CARRY_REQUIRED}):
-              </span>
-              <div className="flex gap-1">
-                {state.carried.map((c, idx) => {
-                  const used = usedCarriedIdxs.has(idx)
-                  return (
-                    <Tile
-                      key={idx}
-                      letter={c.letter}
-                      variant="small"
-                      carried
-                      ghost={used}
-                      selected={selectionMatches(state, 'carried', idx)}
-                      onClick={() => !used && handleSourceTap('carried', idx)}
-                    />
-                  )
-                })}
-              </div>
+        {state.carried.length === 0 ? (
+          <p className="text-xs text-rungles-500 italic">Carried: — (rung 1: no carryover)</p>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-rungles-600 dark:text-rungles-300">
+              Carried (need {CARRY_REQUIRED}):
+            </span>
+            <div className="flex gap-1">
+              {state.carried.map((c, idx) => {
+                const used = usedCarriedIdxs.has(idx)
+                return (
+                  <Tile
+                    key={idx}
+                    letter={c.letter}
+                    variant="small"
+                    carried
+                    ghost={used}
+                    selected={selectionMatches(state, 'carried', idx)}
+                    onClick={() => !used && handleSourceTap('carried', idx)}
+                  />
+                )
+              })}
             </div>
-          )}
-
-          {/* Last played word lives on its own line right below the carried strip. */}
-          {lastRung && (
-            <div className="pt-1 border-t border-rungles-100 dark:border-rungles-900">
-              <LadderRow
-                rung={lastRung}
-                label={`Rung ${state.ladder.length}`}
-                onClick={state.ladder.length > 1 ? () => setHistoryOpen(true) : undefined}
-              />
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       <section className="card !p-3 mb-2" aria-label="Your tile rack">
-        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+        <div className="flex items-center justify-center gap-1 flex-nowrap">
           {state.rack.map((letter, idx) => {
             const inWord = usedRackIdxs.has(idx)
             return (
