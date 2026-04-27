@@ -5,6 +5,7 @@ import RunglesHeader from './components/RunglesHeader.jsx'
 import LandingPage from './components/LandingPage.jsx'
 import SoloGamePage from './components/SoloGamePage.jsx'
 import MultiGamePage from './components/MultiGamePage.jsx'
+import StatsModal from './components/StatsModal.jsx'
 import { supabase } from './lib/supabase.js'
 import { loadDictionary } from './lib/dictionary.js'
 
@@ -21,6 +22,7 @@ function AppInner() {
   // view: 'landing' | 'solo' | 'multi'
   const [view, setView] = useState('landing')
   const [currentGameId, setCurrentGameId] = useState(null)
+  const [statsOpen, setStatsOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -76,8 +78,7 @@ function AppInner() {
     <div className="min-h-screen bg-gradient-to-br from-rungles-50 via-pink-50 to-rungles-100 dark:bg-[#0f0a1e] dark:bg-none text-rungles-900 dark:text-rungles-100 font-body">
       <RunglesHeader
         profile={profile}
-        onAvatarClick={() => { /* Phase 3e */ }}
-        onSettingsClick={() => { /* Phase 3e */ }}
+        onOpenStats={() => setStatsOpen(true)}
       />
 
       {view === 'landing' && (
@@ -100,6 +101,12 @@ function AppInner() {
           onLeave={() => { setCurrentGameId(null); setView('landing') }}
         />
       )}
+
+      <StatsModal
+        open={statsOpen}
+        myUserId={session?.user?.id}
+        onClose={() => setStatsOpen(false)}
+      />
 
       <Toaster position="top-center" />
     </div>
