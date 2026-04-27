@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
+import { GameActionsProvider } from './contexts/GameActionsContext.jsx'
 import RunglesHeader from './components/RunglesHeader.jsx'
 import LandingPage from './components/LandingPage.jsx'
 import SoloGamePage from './components/SoloGamePage.jsx'
@@ -116,7 +117,9 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppInner />
+      <GameActionsProvider>
+        <AppInner />
+      </GameActionsProvider>
     </ThemeProvider>
   )
 }

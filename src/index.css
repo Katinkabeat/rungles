@@ -27,11 +27,65 @@ body {
   @apply px-4 py-2 rounded-xl font-bold border-2 border-rungles-400 text-rungles-700 bg-white transition-all duration-150 active:scale-95;
 }
 .btn-secondary:hover { @apply bg-rungles-50; }
+.dark .btn-secondary {
+  background-color: #1a1130;
+  border-color: #6d28d9;
+  color: #c4b5fd;
+}
+.dark .btn-secondary:hover { background-color: #221540; }
 
 .btn-danger {
   @apply px-4 py-2 rounded-xl font-bold text-white bg-rose-500 transition-all duration-150 active:scale-95;
   box-shadow: 0 3px 0 #9f1239;
 }
+
+/* ── Compact icon buttons (game action bar) — mirrors Wordy's btn-icon-* ── */
+.btn-icon {
+  @apply flex flex-col items-center justify-center rounded-lg transition-all duration-150 active:scale-95;
+  min-width: 56px;
+  height: 44px;
+  padding: 2px 8px;
+  gap: 1px;
+}
+.btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-icon-emoji { font-size: 16px; line-height: 1; }
+.btn-icon-label { font-size: 10px; font-weight: 700; line-height: 1; }
+
+.btn-icon-primary {
+  background: linear-gradient(135deg, #9333ea, #7e22ce);
+  box-shadow: 0 2px 0 #581c87;
+  color: white;
+}
+.btn-icon-primary .btn-icon-label { color: #e9d5ff; }
+.btn-icon-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-icon-primary:active { box-shadow: none; transform: translateY(1px); }
+
+.btn-icon-secondary {
+  @apply border-2 border-rungles-400 bg-white;
+  color: #7e22ce;
+}
+.btn-icon-secondary .btn-icon-label { color: #7e22ce; }
+.btn-icon-secondary:hover:not(:disabled) { @apply bg-rungles-50; }
+.dark .btn-icon-secondary {
+  background-color: #1a1130;
+  border-color: #6d28d9;
+  color: #c4b5fd;
+}
+.dark .btn-icon-secondary .btn-icon-label { color: #c4b5fd; }
+.dark .btn-icon-secondary:hover:not(:disabled) { background-color: #221540; }
+
+.btn-icon-danger {
+  @apply border-2 border-red-400 bg-red-50;
+  color: #dc2626;
+}
+.btn-icon-danger .btn-icon-label { color: #dc2626; }
+.btn-icon-danger:hover:not(:disabled) { background-color: #fee2e2; }
+.dark .btn-icon-danger {
+  background-color: #2d1215;
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
 
 /* ── Card / panel ── */
 .card {
@@ -41,6 +95,101 @@ body {
   background-color: #241640;
   border-color: #2d1b55;
 }
+
+/* ── Tiles (used in solo + multi rack/word/carried) ── */
+.tile {
+  @apply relative flex items-center justify-center rounded-lg font-display select-none transition-all duration-100 cursor-pointer;
+  background: linear-gradient(135deg, #c084fc, #9333ea);
+  border: 1.5px solid #7e22ce;
+  box-shadow: 2px 3px 0px rgba(88,28,135,0.4);
+  color: #fff;
+}
+.tile:active:not(.tile-ghost):not(.tile-disabled) { transform: translateY(1px); box-shadow: 1px 2px 0px rgba(88,28,135,0.4); }
+.tile-ghost { opacity: 0.35; cursor: default; box-shadow: none; }
+.tile-selected {
+  box-shadow: 0 0 0 3px #f472b6, 2px 3px 0px rgba(88,28,135,0.4);
+  transform: translateY(-3px);
+}
+.tile-premium {
+  background: linear-gradient(135deg, #fbbf24, #d97706);
+  border-color: #b45309;
+}
+.tile-carried {
+  background: linear-gradient(135deg, #e5e7eb, #cbd5e1);
+  border-color: #94a3b8;
+  color: #374151;
+}
+.tile-carried .tile-value { color: #525252; }
+.tile-value {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #f3e8ff;
+}
+
+.dark .tile {
+  background: linear-gradient(145deg, #2d1b55, #1e1040);
+  border-color: #7c3aed;
+  box-shadow: 2px 3px 0px rgba(124, 58, 237, 0.5);
+  color: #ede0ff;
+}
+.dark .tile-selected { box-shadow: 0 0 0 3px #f472b6, 2px 3px 0px rgba(124, 58, 237, 0.5); }
+.dark .tile-premium {
+  background: linear-gradient(145deg, #b45309, #78350f);
+  border-color: #f59e0b;
+  color: #fffbeb;
+}
+.dark .tile-carried {
+  background: linear-gradient(145deg, #4b5563, #374151);
+  border-color: #6b7280;
+  color: #e5e7eb;
+}
+.dark .tile-carried .tile-value { color: #d1d5db; }
+.dark .tile-value { color: #c4b5fd; }
+
+/* Empty word slot (placed inline beside .tile in the word area) */
+.tile-empty {
+  @apply flex items-center justify-center rounded-lg text-xs font-bold transition-all duration-100;
+  border: 2px dashed #d8b4fe;
+  color: #d8b4fe;
+  background-color: #fff;
+}
+.tile-empty.tile-empty-premium {
+  border-color: #fbbf24;
+  color: #d97706;
+  background-color: #fef3c7;
+}
+.dark .tile-empty {
+  background-color: #1a1130;
+  border-color: #6d28d9;
+  color: #6d28d9;
+}
+.dark .tile-empty.tile-empty-premium {
+  background-color: rgba(217,119,6,0.1);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+/* Header title — match Wordy: text-rungles-700 in both modes (dark rule below). */
+.dark .text-rungles-700 { color: #c4b5fd; }
+.dark .text-rungles-600 { color: #a78bfa; }
+.dark .text-rungles-800 { color: #ddd6fe; }
+
+/* Ladder letters — explicit because we want rack-sourced letters dark purple
+   in light mode regardless of the global text-rungles-700 lightening above. */
+.ladder-letter {
+  display: inline-block;
+  font-weight: 800;
+  color: #6b21a8;
+}
+.dark .ladder-letter { color: #c4b5fd; }
+.ladder-letter-carried { color: #6b7280 !important; }
+.dark .ladder-letter-carried { color: #9ca3af !important; }
+.ladder-letter-premium { color: #b45309 !important; }
+.dark .ladder-letter-premium { color: #fbbf24 !important; }
 
 /* ── Lobby chip strip ── */
 .lobby-chip {
@@ -85,6 +234,19 @@ body {
   40% { transform: translateX(4px); }
   60% { transform: translateX(-3px); }
   80% { transform: translateX(3px); }
+}
+
+/* Sticky action bar at the bottom of the game viewport. */
+.action-bar-sticky {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, #faf5ff 70%, rgba(250,245,255,0));
+  padding: 8px 0 12px;
+  margin-top: 8px;
+  z-index: 5;
+}
+.dark .action-bar-sticky {
+  background: linear-gradient(to top, #1a1130 70%, rgba(26,17,48,0));
 }
 
 /* SQ dropdown-surface treatment — see rae-side-quest/docs/sq-conventions.md */

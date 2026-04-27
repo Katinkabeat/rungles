@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
-import toast from 'react-hot-toast'
 import Tile, { EmptySlot } from './Tile.jsx'
 import LadderRow from './LadderRow.jsx'
 import BlankPickerModal from './BlankPickerModal.jsx'
 import HistoryModal from './HistoryModal.jsx'
 import EndGameModal from './EndGameModal.jsx'
+import { useGameActions } from '../contexts/GameActionsContext.jsx'
 import {
   TOTAL_RUNGS, MAX_WORD_LEN, CARRY_REQUIRED, HINT_COST,
   newGameState, loadState, saveState, clearSave,
@@ -19,20 +19,23 @@ import { supabase } from '../lib/supabase.js'
 
 export default function SoloGamePage({ onBack }) {
   const [state, setState] = useState(() => loadState() ?? newGameState())
-  const [banner, setBanner] = useState({ text: '', tone: '' })   // tone: 'ok'|'bad'|''
-  const [flash, setFlash] = useState('')                          // 'valid'|'invalid'|''
+  const [banner, setBanner] = useState({ text: '', tone: '' })
+  const [flash, setFlash] = useState('')
   const [scorePulse, setScorePulse] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [endgameOpen, setEndgameOpen] = useState(false)
   const [endgameGaveUp, setEndgameGaveUp] = useState(false)
-  const [pendingBlank, setPendingBlank] = useState(null)         // { slot, srcIdx } or null
+  const [pendingBlank, setPendingBlank] = useState(null)
   const [giveUpArmed, setGiveUpArmed] = useState(false)
   const giveUpTimer = useRef(null)
+  const { setHintAction } = useGameActions()
+  // Keep a ref so the registered hint callback always reads the latest state
+  // (otherwise the captured closure would see stale state from mount).
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
 
-  // Persist on every change.
   useEffect(() => { saveState(state) }, [state])
 
-  // Belt-and-suspenders save when the tab is hidden.
   useEffect(() => {
     const onVis = () => { if (document.visibilityState === 'hidden') saveState(state) }
     const onHide = () => saveState(state)
@@ -43,6 +46,26 @@ export default function SoloGamePage({ onBack }) {
       window.removeEventListener('pagehide', onHide)
     }
   }, [state])
+
+  // Register hint with the global Settings dropdown.
+  useEffect(() => {
+    setHintAction(doHintFromContext)
+    return () => setHintAction(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function doHintFromContext() {
+    const s = stateRef.current
+    if (s.gameOver) return
+    const { state: next, word } = applyHint(s)
+    if (!word) {
+      setBanner({ text: 'No valid word found — try Give Up.', tone: 'bad' })
+      return
+    }
+    setState(next)
+    pulseScore()
+    setBanner({ text: `💡 Try: ${word}  (−${HINT_COST} pts)`, tone: 'ok' })
+  }
 
   // Keyboard.
   useEffect(() => {
@@ -72,7 +95,6 @@ export default function SoloGamePage({ onBack }) {
     return () => document.removeEventListener('keydown', onKey)
   })
 
-  // ── interactions ─────────────────────────────────────────
   function handleSourceTap(source, idx) {
     if (!state.selection) { setState(withSelection(state, source, idx)); return }
     if (selectionMatches(state, source, idx)) { setState(clearSelection(state)); return }
@@ -127,21 +149,7 @@ export default function SoloGamePage({ onBack }) {
     setState(next)
     pulseScore()
     flashInput(true, `✓ ${scored.word} +${scored.rungScore}`)
-    if (scored.gameEnded) {
-      finishGame(next, false)
-    }
-  }
-
-  function doHint() {
-    if (state.gameOver) return
-    const { state: next, word } = applyHint(state)
-    if (!word) {
-      setBanner({ text: 'No valid word found — try Give Up.', tone: 'bad' })
-      return
-    }
-    setState(next)
-    pulseScore()
-    setBanner({ text: `💡 Try: ${word}  (−${HINT_COST} pts)`, tone: 'ok' })
+    if (scored.gameEnded) finishGame(next, false)
   }
 
   function doGiveUp() {
@@ -172,67 +180,41 @@ export default function SoloGamePage({ onBack }) {
     setState(newGameState())
   }
 
-  // ── render helpers ───────────────────────────────────────
   const usedRackIdxs = new Set(state.selected.filter(e => e && e.source === 'rack').map(e => e.idx))
   const usedCarriedIdxs = new Set(state.selected.filter(e => e && e.source === 'carried').map(e => e.idx))
   const filled = filledSlotCount(state)
   const preview = filled > 0 ? previewScore(state) : null
-  const word = currentWord(state)
   const submitDisabled = state.gameOver || filled < 1
   const lastRung = state.ladder.length > 0 ? state.ladder[state.ladder.length - 1] : null
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 py-4 space-y-3">
-      <div className="flex items-center justify-between">
+    <main className="max-w-[480px] mx-auto px-4 py-3 flex flex-col min-h-[calc(100vh-64px)]">
+      <div className="flex items-center justify-between mb-2">
         <button type="button" className="btn-secondary text-sm" onClick={onBack}>← Menu</button>
-        <button
-          type="button"
-          className="text-sm text-rungles-600 dark:text-rungles-300 underline"
-          onClick={() => toast('How to play coming with Phase 3e — see legacy rules in `/rungles/index.legacy.html`', { duration: 4000 })}
-        >
-          ?
-        </button>
-      </div>
-
-      <section className="flex items-center justify-between text-sm" aria-live="polite">
-        <span className="font-display text-rungles-700 dark:text-rungles-200">
+        <span className="font-display text-sm text-rungles-700">
           Rung {Math.min(state.rungNumber, TOTAL_RUNGS)} / {TOTAL_RUNGS}
         </span>
         <span
-          className={`font-display text-rungles-700 dark:text-rungles-100 transition-transform ${scorePulse ? 'scale-125' : ''}`}
+          className={`font-display text-sm text-rungles-700 transition-transform ${scorePulse ? 'scale-125' : ''}`}
         >
           Score: {state.totalScore}
         </span>
-      </section>
+      </div>
 
       {banner.text && (
         <div
           role="status"
-          className={`text-sm font-semibold rounded-lg px-3 py-2 ${
+          className={`text-sm font-semibold rounded-lg px-3 py-2 mb-2 ${
             banner.tone === 'ok'
               ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-200'
-              : banner.tone === 'bad'
-              ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200'
-              : 'bg-rungles-50 text-rungles-700'
+              : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200'
           }`}
         >
           {banner.text}
         </div>
       )}
 
-      <section className="card !p-3 min-h-[44px]" aria-label="Previous rungs">
-        {!lastRung ? (
-          <p className="text-sm text-rungles-500 italic">Your played words will appear here.</p>
-        ) : (
-          <LadderRow
-            rung={lastRung}
-            label={`Rung ${state.ladder.length}`}
-            onClick={state.ladder.length > 1 ? () => setHistoryOpen(true) : undefined}
-          />
-        )}
-      </section>
-
-      <section className="card !p-3 space-y-2" aria-label="Current rung">
+      <section className="card !p-3 space-y-2 mb-2" aria-label="Current rung">
         <div
           className={`flex justify-center gap-1 transition-all ${
             flash === 'valid'
@@ -269,22 +251,13 @@ export default function SoloGamePage({ onBack }) {
           })}
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <button
-            type="button"
-            className="text-rungles-600 dark:text-rungles-300 underline disabled:opacity-50"
-            onClick={doHint}
-            disabled={state.gameOver}
-            aria-label="Get a hint (costs 5 points)"
-          >
-            💡 Hint <span className="text-rungles-400">(−{HINT_COST})</span>
-          </button>
-          <span className={`font-display text-rungles-700 dark:text-rungles-200 ${preview ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="flex items-center justify-end text-xs">
+          <span className={`font-display text-rungles-700 ${preview ? 'opacity-100' : 'opacity-0'}`}>
             {preview != null ? `+${preview} pts` : ''}
           </span>
         </div>
 
-        <div className="min-h-[28px]">
+        <div className="space-y-1">
           {state.carried.length === 0 ? (
             <p className="text-xs text-rungles-500 italic">Carried: — (rung 1: no carryover)</p>
           ) : (
@@ -310,10 +283,21 @@ export default function SoloGamePage({ onBack }) {
               </div>
             </div>
           )}
+
+          {/* Last played word lives on its own line right below the carried strip. */}
+          {lastRung && (
+            <div className="pt-1 border-t border-rungles-100 dark:border-rungles-900">
+              <LadderRow
+                rung={lastRung}
+                label={`Rung ${state.ladder.length}`}
+                onClick={state.ladder.length > 1 ? () => setHistoryOpen(true) : undefined}
+              />
+            </div>
+          )}
         </div>
       </section>
 
-      <section className="card !p-3" aria-label="Your tile rack">
+      <section className="card !p-3 mb-2" aria-label="Your tile rack">
         <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {state.rack.map((letter, idx) => {
             const inWord = usedRackIdxs.has(idx)
@@ -330,16 +314,34 @@ export default function SoloGamePage({ onBack }) {
         </div>
       </section>
 
-      <section className="grid grid-cols-4 gap-2">
-        <ActionButton emoji="✅" label="Submit" onClick={doSubmit} variant="primary" disabled={submitDisabled} />
-        <ActionButton emoji="↩️" label="Clear" onClick={() => setState(clearWord(state))} disabled={filled === 0 && !state.selection} />
-        <ActionButton emoji="🔀" label="Shuffle" onClick={() => setState(shuffleRack(state))} disabled={state.gameOver} />
+      {/* Spacer pushes the action bar to the bottom of the page. */}
+      <div className="flex-1" />
+
+      <section className="action-bar-sticky space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <ActionButton emoji="✅" label="Submit" onClick={doSubmit} variant="primary" disabled={submitDisabled} />
+          <ActionButton
+            emoji="↩️"
+            label="Clear"
+            onClick={() => setState(clearWord(state))}
+            variant="secondary"
+            disabled={filled === 0 && !state.selection}
+          />
+          <ActionButton
+            emoji="🔀"
+            label="Shuffle"
+            onClick={() => setState(shuffleRack(state))}
+            variant="secondary"
+            disabled={state.gameOver}
+          />
+        </div>
         <ActionButton
           emoji="🏳️"
-          label={giveUpArmed ? 'Confirm?' : 'Give Up'}
+          label={giveUpArmed ? 'Tap again to confirm' : 'Give Up'}
           onClick={doGiveUp}
           variant="danger"
           disabled={state.gameOver}
+          fullWidth
         />
       </section>
 
@@ -365,22 +367,22 @@ export default function SoloGamePage({ onBack }) {
   )
 }
 
-function ActionButton({ emoji, label, onClick, variant, disabled }) {
-  const cls =
+function ActionButton({ emoji, label, onClick, variant, disabled, fullWidth = false }) {
+  const variantCls =
     variant === 'primary'
-      ? 'btn-primary'
+      ? 'btn-icon btn-icon-primary'
       : variant === 'danger'
-      ? 'btn-danger'
-      : 'btn-secondary'
+      ? 'btn-icon btn-icon-danger'
+      : 'btn-icon btn-icon-secondary'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`${cls} flex flex-col items-center justify-center !px-1 !py-2 text-xs leading-tight gap-0.5`}
+      className={`${variantCls} ${fullWidth ? 'w-full' : ''}`}
     >
-      <span className="text-lg leading-none">{emoji}</span>
-      <span>{label}</span>
+      <span className="btn-icon-emoji">{emoji}</span>
+      <span className="btn-icon-label">{label}</span>
     </button>
   )
 }

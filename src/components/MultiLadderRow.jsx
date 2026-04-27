@@ -18,18 +18,18 @@ export default function MultiLadderRow({ rung, prevWord, label, onClick }) {
       }}
       className={`flex items-center gap-2 py-1.5 px-1 ${tappable ? 'cursor-pointer hover:bg-rungles-50 dark:hover:bg-rungles-900/30 rounded-md' : ''}`}
     >
-      <span className="text-xs text-rungles-500 dark:text-rungles-400 min-w-[5.5rem]">{label}</span>
+      <span className="text-xs text-rungles-500 min-w-[5.5rem]">{label}</span>
       <span className="font-bold tracking-wider flex-1 text-sm">
         {letters.map((ch, i) => {
           const isCarried = carriedFlags[i]
           const isPremium = !isCarried && rung.premium_pos && (i + 1) === rung.premium_pos
-          let cls = 'inline-block text-rungles-700 dark:text-rungles-200 font-extrabold'
-          if (isCarried) cls = 'inline-block text-neutral-500 dark:text-neutral-400 font-extrabold'
-          else if (isPremium) cls = 'inline-block text-amber-600 dark:text-amber-400 font-extrabold'
+          let cls = 'ladder-letter'
+          if (isCarried) cls = 'ladder-letter ladder-letter-carried'
+          else if (isPremium) cls = 'ladder-letter ladder-letter-premium'
           return <span key={i} className={cls}>{ch}</span>
         })}
       </span>
-      <span className="text-rungles-700 dark:text-rungles-300 font-semibold text-sm">
+      <span className="text-rungles-700 font-semibold text-sm">
         +{rung.rung_score}
       </span>
     </div>
@@ -40,9 +40,11 @@ export default function MultiLadderRow({ rung, prevWord, label, onClick }) {
 export function SeedRow({ word }) {
   return (
     <div className="flex items-center gap-2 py-1.5 px-1 opacity-70">
-      <span className="text-xs text-rungles-500 dark:text-rungles-400 min-w-[5.5rem]">Seed</span>
-      <span className="font-bold tracking-wider flex-1 text-sm text-rungles-700 dark:text-rungles-200">
-        {(word || '').toUpperCase()}
+      <span className="text-xs text-rungles-500 min-w-[5.5rem]">Seed</span>
+      <span className="font-bold tracking-wider flex-1 text-sm">
+        {(word || '').toUpperCase().split('').map((ch, i) => (
+          <span key={i} className="ladder-letter">{ch}</span>
+        ))}
       </span>
       <span className="text-rungles-500 text-sm">—</span>
     </div>

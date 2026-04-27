@@ -309,7 +309,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
 
   // ── render ──────────────────────────────────────────────────
   if (loading) {
-    return <main className="max-w-[480px] mx-auto px-4 py-6 text-center text-rungles-700 dark:text-rungles-200">Loading match…</main>
+    return <main className="max-w-[480px] mx-auto px-4 py-6 text-center text-rungles-700">Loading match…</main>
   }
   if (loadError) {
     return (
@@ -325,10 +325,10 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
       <main className="max-w-[480px] mx-auto px-4 py-6 space-y-4">
         <button type="button" className="btn-secondary" onClick={onLeave}>← Menu</button>
         <div className="card text-center">
-          <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-1">
+          <h2 className="font-display text-xl text-rungles-700 mb-1">
             Waiting room
           </h2>
-          <p className="text-sm text-rungles-700 dark:text-rungles-300 mb-2">
+          <p className="text-sm text-rungles-700 mb-2">
             Waiting for opponent…
           </p>
           <p className="text-xs text-rungles-500">
@@ -349,26 +349,26 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
   const isComplete = game?.status === 'complete'
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 py-3 space-y-3">
-      <div className="flex items-center justify-between">
+    <main className="max-w-[480px] mx-auto px-4 py-3 flex flex-col min-h-[calc(100vh-64px)]">
+      <div className="flex items-center justify-between mb-2">
         <button type="button" className="btn-secondary text-sm" onClick={onLeave}>← Menu</button>
-        <span className="text-sm font-display text-rungles-700 dark:text-rungles-200">
+        <span className="text-sm font-display text-rungles-700">
           Rung {Math.min(nextRungNumber, totalRungs)} / {totalRungs}
         </span>
       </div>
 
-      <section className="card !p-3 space-y-1">
+      <section className="card !p-3 space-y-1 mb-2">
         <div className="flex items-center justify-between">
-          <span className="font-display text-sm text-rungles-700 dark:text-rungles-200">
+          <span className="font-display text-sm text-rungles-700">
             You: {me?.score ?? 0}
           </span>
-          <span className="font-display text-sm text-rungles-700 dark:text-rungles-200">
+          <span className="font-display text-sm text-rungles-700">
             {opponent?.username ?? 'Opponent'}: {opponent?.score ?? 0}
           </span>
         </div>
         <div className="text-center text-sm">
           {isComplete ? (
-            <span className="font-bold text-rungles-700 dark:text-rungles-200">
+            <span className="font-bold text-rungles-700">
               {game.winner_player_idx === me?.playerIdx ? '🎉 You won!' : `${opponent?.username ?? 'Opponent'} won.`}
             </span>
           ) : myTurn ? (
@@ -382,7 +382,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
       {status.text && (
         <div
           role="status"
-          className={`text-sm font-semibold rounded-lg px-3 py-2 ${
+          className={`text-sm font-semibold rounded-lg px-3 py-2 mb-2 ${
             status.tone === 'ok'
               ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-200'
               : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200'
@@ -392,126 +392,136 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
         </div>
       )}
 
-      <section className="card !p-3 min-h-[44px]" aria-label="Rungs played">
-        {!lastRung ? (
-          <p className="text-sm text-rungles-500 italic">No rungs yet — first move starts the ladder.</p>
-        ) : (
-          <>
-            <MultiLadderRow
-              rung={lastRung}
-              prevWord={lastPrev}
-              label={`Rung ${lastRung.rung_number} (${lastWho})`}
-              onClick={rungs.length > 1 ? () => setHistoryOpen(true) : undefined}
-            />
-            {game?.seed_word && <SeedRow word={game.seed_word} />}
-          </>
-        )}
-      </section>
-
       {!isComplete && (
-        <>
-          <section className="card !p-3 space-y-2" aria-label="Current rung">
-            <div className="text-xs text-rungles-500 dark:text-rungles-400">
-              {premiumPos ? `2× slot: position ${premiumPos}` : '2× slot: —'}
-            </div>
-            <div className="flex justify-center gap-1">
-              {Array.from({ length: MAX_WORD_LEN }, (_, slot) => {
-                const entry = selected[slot]
-                const isPremium = (slot + 1) === premiumPos
-                if (entry) {
-                  const isPremiumHit = isPremium && entry.source === 'rack'
-                  return (
-                    <Tile
-                      key={slot}
-                      letter={entry.letter}
-                      variant="in-word"
-                      premium={isPremiumHit}
-                      carried={entry.source === 'carried'}
-                      onClick={() => handleSlotTap(slot)}
-                      disabled={!playable}
-                    />
-                  )
-                }
-                return (
-                  <EmptySlot
-                    key={slot}
-                    premium={isPremium}
-                    onClick={() => handleSlotTap(slot)}
-                    ariaLabel={`Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`}
-                  />
-                )
-              })}
-            </div>
-
-            <div className="flex items-center justify-end text-xs">
-              <span className={`font-display text-rungles-700 dark:text-rungles-200 ${previewPts != null ? 'opacity-100' : 'opacity-0'}`}>
-                {previewPts != null ? `+${previewPts} pts` : ''}
-              </span>
-            </div>
-
-            <div className="min-h-[28px]">
-              {carriedLetters.length === 0 ? (
-                <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-rungles-600 dark:text-rungles-300">
-                    {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
-                  </span>
-                  <div className="flex gap-1">
-                    {carriedLetters.map((letter, idx) => {
-                      const used = usedCarriedIdxs.has(idx)
-                      return (
-                        <Tile
-                          key={idx}
-                          letter={letter}
-                          variant="small"
-                          carried
-                          ghost={used}
-                          selected={selectionMatches('carried', idx)}
-                          onClick={() => !used && handleSourceTap('carried', idx)}
-                          disabled={!playable}
-                        />
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="card !p-3" aria-label="Your tile rack">
-            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-              {order.map(serverIdx => {
-                const letter = rack[serverIdx]
-                const inWord = usedRackIdxs.has(serverIdx)
+        <section className="card !p-3 space-y-2 mb-2" aria-label="Current rung">
+          <div className="text-xs text-rungles-500">
+            {premiumPos ? `2× slot: position ${premiumPos}` : '2× slot: —'}
+          </div>
+          <div className="flex justify-center gap-1">
+            {Array.from({ length: MAX_WORD_LEN }, (_, slot) => {
+              const entry = selected[slot]
+              const isPremium = (slot + 1) === premiumPos
+              if (entry) {
+                const isPremiumHit = isPremium && entry.source === 'rack'
                 return (
                   <Tile
-                    key={serverIdx}
-                    letter={letter}
-                    ghost={inWord}
-                    selected={selectionMatches('rack', serverIdx)}
-                    onClick={() => !inWord && handleSourceTap('rack', serverIdx)}
+                    key={slot}
+                    letter={entry.letter}
+                    variant="in-word"
+                    premium={isPremiumHit}
+                    carried={entry.source === 'carried'}
+                    onClick={() => handleSlotTap(slot)}
                     disabled={!playable}
                   />
                 )
-              })}
-            </div>
-          </section>
+              }
+              return (
+                <EmptySlot
+                  key={slot}
+                  premium={isPremium}
+                  onClick={() => handleSlotTap(slot)}
+                  ariaLabel={`Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`}
+                />
+              )
+            })}
+          </div>
 
-          <section className="grid grid-cols-5 gap-2">
+          <div className="flex items-center justify-end text-xs">
+            <span className={`font-display text-rungles-700 ${previewPts != null ? 'opacity-100' : 'opacity-0'}`}>
+              {previewPts != null ? `+${previewPts} pts` : ''}
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            {carriedLetters.length === 0 ? (
+              <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-rungles-600 dark:text-rungles-300">
+                  {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
+                </span>
+                <div className="flex gap-1">
+                  {carriedLetters.map((letter, idx) => {
+                    const used = usedCarriedIdxs.has(idx)
+                    return (
+                      <Tile
+                        key={idx}
+                        letter={letter}
+                        variant="small"
+                        carried
+                        ghost={used}
+                        selected={selectionMatches('carried', idx)}
+                        onClick={() => !used && handleSourceTap('carried', idx)}
+                        disabled={!playable}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Last played word + seed live on their own line below the carried strip. */}
+            {lastRung && (
+              <div className="pt-1 border-t border-rungles-100 dark:border-rungles-900">
+                <MultiLadderRow
+                  rung={lastRung}
+                  prevWord={lastPrev}
+                  label={`Rung ${lastRung.rung_number} (${lastWho})`}
+                  onClick={rungs.length > 1 ? () => setHistoryOpen(true) : undefined}
+                />
+                {game?.seed_word && <SeedRow word={game.seed_word} />}
+              </div>
+            )}
+            {!lastRung && game?.seed_word && (
+              <div className="pt-1 border-t border-rungles-100 dark:border-rungles-900">
+                <SeedRow word={game.seed_word} />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {!isComplete && (
+        <section className="card !p-3 mb-2" aria-label="Your tile rack">
+          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+            {order.map(serverIdx => {
+              const letter = rack[serverIdx]
+              const inWord = usedRackIdxs.has(serverIdx)
+              return (
+                <Tile
+                  key={serverIdx}
+                  letter={letter}
+                  ghost={inWord}
+                  selected={selectionMatches('rack', serverIdx)}
+                  onClick={() => !inWord && handleSourceTap('rack', serverIdx)}
+                  disabled={!playable}
+                />
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Spacer pushes action bar to bottom. */}
+      <div className="flex-1" />
+
+      {!isComplete && (
+        <section className="action-bar-sticky space-y-2">
+          <div className="grid grid-cols-4 gap-2">
             <ActionButton emoji="✅" label="Submit" onClick={doSubmit} variant="primary" disabled={!playable || filled === 0} />
-            <ActionButton emoji="↩️" label="Clear" onClick={clearWord} disabled={!playable || (filled === 0 && !selection)} />
-            <ActionButton emoji="🔀" label="Shuffle" onClick={handleShuffle} disabled={!playable} />
-            <ActionButton emoji="⏩" label="Skip" onClick={doSkip} disabled={!playable} />
-            <ActionButton
-              emoji="🏳️"
-              label={giveUpArmed ? 'Confirm?' : 'Give Up'}
-              onClick={doGiveUp}
-              variant="danger"
-              disabled={submitting}
-            />
-          </section>
-        </>
+            <ActionButton emoji="↩️" label="Clear" onClick={clearWord} variant="secondary" disabled={!playable || (filled === 0 && !selection)} />
+            <ActionButton emoji="🔀" label="Shuffle" onClick={handleShuffle} variant="secondary" disabled={!playable} />
+            <ActionButton emoji="⏩" label="Skip" onClick={doSkip} variant="secondary" disabled={!playable} />
+          </div>
+          <ActionButton
+            emoji="🏳️"
+            label={giveUpArmed ? 'Tap again to confirm' : 'Give Up'}
+            onClick={doGiveUp}
+            variant="danger"
+            disabled={submitting}
+            fullWidth
+          />
+        </section>
       )}
 
       {isComplete && (
@@ -551,20 +561,22 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
   )
 }
 
-function ActionButton({ emoji, label, onClick, variant, disabled }) {
-  const cls =
-    variant === 'primary' ? 'btn-primary'
-    : variant === 'danger' ? 'btn-danger'
-    : 'btn-secondary'
+function ActionButton({ emoji, label, onClick, variant, disabled, fullWidth = false }) {
+  const variantCls =
+    variant === 'primary'
+      ? 'btn-icon btn-icon-primary'
+      : variant === 'danger'
+      ? 'btn-icon btn-icon-danger'
+      : 'btn-icon btn-icon-secondary'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`${cls} flex flex-col items-center justify-center !px-1 !py-2 text-xs leading-tight gap-0.5`}
+      className={`${variantCls} ${fullWidth ? 'w-full' : ''}`}
     >
-      <span className="text-lg leading-none">{emoji}</span>
-      <span>{label}</span>
+      <span className="btn-icon-emoji">{emoji}</span>
+      <span className="btn-icon-label">{label}</span>
     </button>
   )
 }

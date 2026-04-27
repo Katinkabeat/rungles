@@ -17,7 +17,7 @@ export default function RunglesHeader({ profile, onOpenStats }) {
             profile={profile}
             onClick={() => setOpen(o => (o === 'avatar' ? null : 'avatar'))}
           />
-          <span className="font-display text-2xl text-rungles-700 dark:text-rungles-200">
+          <span className="font-display text-2xl text-rungles-700">
             Rungles
           </span>
         </div>
