@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import toast from 'react-hot-toast'
 import LobbyList from './LobbyList.jsx'
+import CompletedGamesSection from './CompletedGamesSection.jsx'
 import { createGame } from '../lib/lobbyService.js'
 
 export default function LandingPage({ profile, myUserId, onPlaySolo, onEnterGame }) {
@@ -53,6 +54,11 @@ export default function LandingPage({ profile, myUserId, onPlaySolo, onEnterGame
           onEnterGame={onEnterGame}
         />
       </section>
+
+      <CompletedGamesSection
+        myUserId={myUserId}
+        onEnterGame={onEnterGame}
+      />
     </main>
   )
 }
