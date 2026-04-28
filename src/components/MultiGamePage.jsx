@@ -57,6 +57,13 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
         setPremiumPos(data.premiumPos)
         setRackOrder(null)
         wasComplete.current = data.game.status === 'complete'
+        // Auto-open the end-game modal on cold load if the game's already
+        // finished and this user hasn't dismissed the result yet (e.g. they
+        // navigated here from the lobby banner or finish toast).
+        if (data.game.status === 'complete') {
+          const meRow = data.players.find(p => p.userId === myUserId)
+          if (meRow && meRow.dismissedAt == null) setEndgameOpen(true)
+        }
         setLoading(false)
       })
       .catch(e => {
@@ -375,7 +382,11 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
         <div className="text-center text-sm">
           {isComplete ? (
             <span className="font-bold text-rungles-700">
-              {game.winner_player_idx === me?.playerIdx ? '🎉 You won!' : `${opponent?.username ?? 'Opponent'} won.`}
+              {game.forfeit_user_id
+                ? (game.forfeit_user_id === myUserId
+                    ? `🏳️ You gave up — ${opponent?.username ?? 'Opponent'} wins`
+                    : `🏳️ ${opponent?.username ?? 'Opponent'} gave up — you win!`)
+                : (game.winner_player_idx === me?.playerIdx ? '🎉 You won!' : `${opponent?.username ?? 'Opponent'} won.`)}
             </span>
           ) : myTurn ? (
             <span className="font-bold text-green-700 dark:text-green-300">Your turn</span>
@@ -555,6 +566,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
         me={me}
         opponent={opponent}
         winnerPlayerIdx={game?.winner_player_idx}
+        forfeitUserId={game?.forfeit_user_id}
         onBackToLobby={() => { setEndgameOpen(false); onLeave() }}
         onClose={() => setEndgameOpen(false)}
       />

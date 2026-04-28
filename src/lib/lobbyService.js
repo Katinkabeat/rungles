@@ -47,6 +47,108 @@ export function subscribeLobby(onChange) {
     .subscribe()
 }
 
+// Returns finished games this user was in and hasn't dismissed yet.
+// Each entry: { gameId, finishedAt, isWinner, isForfeit, gaveUp,
+//   winnerUserId, winnerName, opponentName, myScore, opponentScore }.
+// localStorage cache (keyed per user) gives instant filtering even before
+// the server's dismissed_at write lands.
+export async function fetchUnseenResults(myUserId) {
+  const seenKey = `rungles_seen_results_${myUserId}`
+  const seen = new Set(JSON.parse(localStorage.getItem(seenKey) ?? '[]'))
+
+  // My player rows for finished games where I haven't dismissed.
+  const { data: myRows, error } = await supabase
+    .from('rg_players')
+    .select(`
+      game_id, player_idx, score, dismissed_at,
+      rg_games!inner ( id, status, finished_at, winner_player_idx, forfeit_user_id )
+    `)
+    .eq('user_id', myUserId)
+    .is('dismissed_at', null)
+    .eq('rg_games.status', 'complete')
+    .limit(50)
+  if (error) throw error
+
+  const unseen = (myRows ?? []).filter(r => !seen.has(r.game_id))
+  if (unseen.length === 0) return []
+
+  // Sort newest-first by finished_at (client-side; ordering on a foreign-table
+  // column via supabase-js can be flaky).
+  unseen.sort((a, b) =>
+    (b.rg_games?.finished_at ?? '').localeCompare(a.rg_games?.finished_at ?? '')
+  )
+
+  const gameIds = unseen.map(r => r.game_id)
+  const { data: allPlayers } = await supabase
+    .from('rg_players')
+    .select('game_id, user_id, player_idx, score')
+    .in('game_id', gameIds)
+
+  const userIds = [...new Set((allPlayers ?? []).map(p => p.user_id))]
+  let usernameById = {}
+  if (userIds.length) {
+    const { data: profs } = await supabase
+      .from('profiles').select('id, username').in('id', userIds)
+    usernameById = Object.fromEntries((profs ?? []).map(p => [p.id, p.username]))
+  }
+
+  const playersByGame = {}
+  for (const p of (allPlayers ?? [])) {
+    if (!playersByGame[p.game_id]) playersByGame[p.game_id] = []
+    playersByGame[p.game_id].push(p)
+  }
+
+  return unseen.map(r => {
+    const game = r.rg_games
+    const all = playersByGame[r.game_id] ?? []
+    const me = all.find(p => p.user_id === myUserId)
+    const opponent = all.find(p => p.user_id !== myUserId)
+    const winner = all.find(p => p.player_idx === game?.winner_player_idx)
+    const isForfeit = !!game?.forfeit_user_id
+    const gaveUp = isForfeit && game.forfeit_user_id === myUserId
+    return {
+      gameId: r.game_id,
+      finishedAt: game?.finished_at,
+      isWinner: winner?.user_id === myUserId,
+      isForfeit,
+      gaveUp,
+      winnerUserId: winner?.user_id,
+      winnerName: usernameById[winner?.user_id] ?? '?',
+      opponentName: usernameById[opponent?.user_id] ?? '?',
+      myScore: me?.score ?? 0,
+      opponentScore: opponent?.score ?? 0,
+    }
+  })
+}
+
+// Mark a finished game's result as dismissed (won't appear in the banner
+// next time). Server-of-truth via RPC; localStorage for instant UI cache.
+export async function dismissResult(myUserId, gameId) {
+  const seenKey = `rungles_seen_results_${myUserId}`
+  const seen = new Set(JSON.parse(localStorage.getItem(seenKey) ?? '[]'))
+  seen.add(gameId)
+  localStorage.setItem(seenKey, JSON.stringify([...seen]))
+
+  const { error } = await supabase.rpc('rg_dismiss_result', { p_game_id: gameId })
+  if (error) throw error
+}
+
+// Lobby-scoped subscription that fires onFinish(gameId) when any rg_games row
+// flips to status='complete'. Caller filters to "games I'm in" using its own
+// player-membership snapshot (we don't have that info in the payload).
+export function subscribeFinishes(onFinish) {
+  return supabase
+    .channel('lobby_rg_finishes')
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'rg_games' },
+      (payload) => {
+        if (payload.new?.status === 'complete' && payload.old?.status !== 'complete') {
+          onFinish(payload.new)
+        }
+      })
+    .subscribe()
+}
+
 export async function createGame({ totalRungs = 10 } = {}) {
   const { data, error } = await supabase.rpc('rg_create_game', { p_total_rungs: totalRungs })
   if (error) throw error

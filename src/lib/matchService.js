@@ -11,7 +11,7 @@ export async function loadMatch(gameId, myUserId) {
   if (gErr) throw gErr
 
   const { data: rawPlayers } = await supabase
-    .from('rg_players').select('user_id, player_idx, score').eq('game_id', gameId)
+    .from('rg_players').select('user_id, player_idx, score, dismissed_at').eq('game_id', gameId)
   const players = rawPlayers ?? []
 
   let usernameById = {}
@@ -37,6 +37,7 @@ export async function loadMatch(gameId, myUserId) {
     userId: p.user_id,
     playerIdx: p.player_idx,
     score: p.score,
+    dismissedAt: p.dismissed_at,
     username: usernameById[p.user_id] ?? '?',
   }))
 
