@@ -76,11 +76,13 @@ function AppInner() {
     )
   }
 
+  const openStats = () => setStatsOpen(true)
+
   return (
     <>
-      {view === 'landing' ? (
+      {view === 'landing' && (
         <SQLobbyShell
-          header={<RunglesHeader profile={profile} onOpenStats={() => setStatsOpen(true)} />}
+          header={<RunglesHeader profile={profile} onOpenStats={openStats} />}
           className="text-rungles-900 dark:text-rungles-100 font-body"
         >
           <LandingPage
@@ -90,25 +92,24 @@ function AppInner() {
             onEnterGame={(gameId) => { setCurrentGameId(gameId); setView('multi') }}
           />
         </SQLobbyShell>
-      ) : (
-        <div className="min-h-screen bg-gradient-to-br from-rungles-50 via-pink-50 to-rungles-100 dark:bg-[#0f0a1e] dark:bg-none text-rungles-900 dark:text-rungles-100 font-body">
-          <RunglesHeader
-            profile={profile}
-            onOpenStats={() => setStatsOpen(true)}
-          />
+      )}
 
-          {view === 'solo' && (
-            <SoloGamePage onBack={() => setView('landing')} />
-          )}
+      {view === 'solo' && (
+        <SoloGamePage
+          profile={profile}
+          onOpenStats={openStats}
+          onBack={() => setView('landing')}
+        />
+      )}
 
-          {view === 'multi' && currentGameId && (
-            <MultiGamePage
-              gameId={currentGameId}
-              myUserId={session?.user?.id}
-              onLeave={() => { setCurrentGameId(null); setView('landing') }}
-            />
-          )}
-        </div>
+      {view === 'multi' && currentGameId && (
+        <MultiGamePage
+          gameId={currentGameId}
+          myUserId={session?.user?.id}
+          profile={profile}
+          onOpenStats={openStats}
+          onLeave={() => { setCurrentGameId(null); setView('landing') }}
+        />
       )}
 
       <StatsModal

@@ -11,6 +11,8 @@ import {
   subscribeMatch, subscribeGameStatus, unsubscribe,
 } from '../lib/matchService.js'
 import { scoreRung } from '../lib/scoring.js'
+import RunglesHeader from './RunglesHeader.jsx'
+import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
 const MAX_WORD_LEN = 7
 const MIN_WORD_LEN = 4
@@ -18,7 +20,7 @@ const CARRY_REQUIRED = 3
 
 function emptyWord() { return new Array(MAX_WORD_LEN).fill(null) }
 
-export default function MultiGamePage({ gameId, myUserId, onLeave }) {
+export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOpenStats }) {
   // Top-level data
   const [game, setGame] = useState(null)
   const [players, setPlayers] = useState([])
@@ -315,34 +317,42 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
   }
 
   // ── render ──────────────────────────────────────────────────
+  // Helper: shell wrapper for transient states (loading / error / waiting)
+  // so they get the same chrome as the active game view.
+  const renderShell = (content) => (
+    <SQBoardShell
+      width="narrow"
+      header={<RunglesHeader profile={profile} onOpenStats={onOpenStats} />}
+      subHeader={<SQBoardHeader backLabel="← Lobby" onBackClick={onLeave} />}
+    >
+      {content}
+    </SQBoardShell>
+  )
+
   if (loading) {
-    return <main className="max-w-[480px] mx-auto px-4 py-6 text-center text-rungles-700">Loading match…</main>
+    return renderShell(
+      <p className="text-center text-rungles-700 dark:text-rungles-200">Loading match…</p>
+    )
   }
   if (loadError) {
-    return (
-      <main className="max-w-[480px] mx-auto px-4 py-6">
-        <button type="button" className="btn-secondary mb-3" onClick={onLeave}>← Menu</button>
-        <div className="card text-rose-700">Couldn't load match: {loadError}</div>
-      </main>
+    return renderShell(
+      <div className="card text-rose-700">Couldn't load match: {loadError}</div>
     )
   }
 
   if (game?.status === 'waiting') {
-    return (
-      <main className="max-w-[480px] mx-auto px-4 py-6 space-y-4">
-        <button type="button" className="btn-secondary" onClick={onLeave}>← Menu</button>
-        <div className="card text-center">
-          <h2 className="font-display text-xl text-rungles-700 mb-1">
-            Waiting room
-          </h2>
-          <p className="text-sm text-rungles-700 mb-2">
-            Waiting for opponent…
-          </p>
-          <p className="text-xs text-rungles-500">
-            Players: {players.map(p => p.username).join(', ') || '—'}
-          </p>
-        </div>
-      </main>
+    return renderShell(
+      <div className="card text-center space-y-2">
+        <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200">
+          Waiting room
+        </h2>
+        <p className="text-sm text-rungles-700 dark:text-rungles-300">
+          Waiting for opponent…
+        </p>
+        <p className="text-xs text-rungles-500 dark:text-rungles-400">
+          Players: {players.map(p => p.username).join(', ') || '—'}
+        </p>
+      </div>
     )
   }
 
@@ -356,20 +366,21 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
   const isComplete = game?.status === 'complete'
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 py-3 flex flex-col min-h-[calc(100vh-64px)]">
-      <div className="flex items-center justify-between mb-2">
-        <button
-          type="button"
-          onClick={onLeave}
-          className="text-rungles-400 hover:text-rungles-700 dark:hover:text-rungles-300 text-sm font-bold"
-        >
-          ← Lobby
-        </button>
-        <span className="text-sm font-display text-rungles-700">
-          Rung {Math.min(nextRungNumber, totalRungs)} / {totalRungs}
-        </span>
-      </div>
-
+    <SQBoardShell
+      width="narrow"
+      header={<RunglesHeader profile={profile} onOpenStats={onOpenStats} />}
+      subHeader={
+        <SQBoardHeader
+          backLabel="← Lobby"
+          onBackClick={onLeave}
+          rightSlot={
+            <span className="font-display text-sm text-rungles-700 dark:text-rungles-200">
+              Rung {Math.min(nextRungNumber, totalRungs)} / {totalRungs}
+            </span>
+          }
+        />
+      }
+    >
       <section className="card !p-3 space-y-1 mb-2">
         <div className="flex items-center justify-between">
           <span className="font-display text-sm text-rungles-700">
@@ -570,7 +581,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave }) {
         onBackToLobby={() => { setEndgameOpen(false); onLeave() }}
         onClose={() => setEndgameOpen(false)}
       />
-    </main>
+    </SQBoardShell>
   )
 }
 

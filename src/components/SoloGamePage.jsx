@@ -16,8 +16,10 @@ import {
   bestRung,
 } from '../lib/soloGame.js'
 import { supabase } from '../lib/supabase.js'
+import RunglesHeader from './RunglesHeader.jsx'
+import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
-export default function SoloGamePage({ onBack }) {
+export default function SoloGamePage({ onBack, profile, onOpenStats }) {
   const [state, setState] = useState(() => loadState() ?? newGameState())
   const [banner, setBanner] = useState({ text: '', tone: '' })
   const [flash, setFlash] = useState('')
@@ -188,20 +190,26 @@ export default function SoloGamePage({ onBack }) {
   const lastRung = state.ladder.length > 0 ? state.ladder[state.ladder.length - 1] : null
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 py-3 flex flex-col min-h-[calc(100vh-64px)]">
-      <div className="flex items-center justify-between mb-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-rungles-400 hover:text-rungles-700 dark:hover:text-rungles-300 text-sm font-bold"
-        >
-          ← Lobby
-        </button>
-        <span className="font-display text-sm text-rungles-700">
-          Rung {Math.min(state.rungNumber, TOTAL_RUNGS)} / {TOTAL_RUNGS}
-        </span>
+    <SQBoardShell
+      width="narrow"
+      header={<RunglesHeader profile={profile} onOpenStats={onOpenStats} />}
+      subHeader={
+        <SQBoardHeader
+          backLabel="← Lobby"
+          onBackClick={onBack}
+          rightSlot={
+            <span className="font-display text-sm text-rungles-700 dark:text-rungles-200">
+              Rung {Math.min(state.rungNumber, TOTAL_RUNGS)} / {TOTAL_RUNGS}
+            </span>
+          }
+        />
+      }
+    >
+      {/* Total score — pulses on each increment so the player can watch
+          their score grow without a dedicated card. */}
+      <div className="flex justify-end mb-2">
         <span
-          className={`font-display text-sm text-rungles-700 transition-transform ${scorePulse ? 'scale-125' : ''}`}
+          className={`font-display text-sm text-rungles-700 dark:text-rungles-200 bg-rungles-100 dark:bg-[#2d1b55] px-3 py-1 rounded-full transition-transform ${scorePulse ? 'scale-125' : ''}`}
         >
           Score: {state.totalScore}
         </span>
@@ -367,7 +375,7 @@ export default function SoloGamePage({ onBack }) {
         onPlayAgain={startNewGame}
         onClose={() => setEndgameOpen(false)}
       />
-    </main>
+    </SQBoardShell>
   )
 }
 
