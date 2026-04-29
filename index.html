@@ -11,12 +11,11 @@
     <meta name="apple-mobile-web-app-title" content="Rungles" />
     <link rel="apple-touch-icon" href="/rungles/favicon.svg" />
     <title>Rungles 🪜 – Word Ladder Game</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Self-hosted SQ fonts. Files live in rae-side-quest/public/fonts/
+         and serve at /games/fonts/... (same origin for all SQ surfaces).
+         @font-face declarations live in sq-ui/globals.css. -->
+    <link rel="preload" href="/games/fonts/fredoka-one-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/games/fonts/nunito.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <div id="root"></div>
