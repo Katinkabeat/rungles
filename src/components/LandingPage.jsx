@@ -20,7 +20,7 @@ export default function LandingPage({ profile, myUserId, onPlaySolo, onEnterGame
   }
 
   return (
-    <main className="max-w-[480px] mx-auto px-4 py-6 space-y-4">
+    <>
       <section className="card">
         <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-1">
           🎯 Solo
@@ -59,6 +59,6 @@ export default function LandingPage({ profile, myUserId, onPlaySolo, onEnterGame
         myUserId={myUserId}
         onEnterGame={onEnterGame}
       />
-    </main>
+    </>
   )
 }

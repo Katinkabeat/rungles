@@ -4,6 +4,7 @@ import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import { GameActionsProvider } from './contexts/GameActionsContext.jsx'
 import RunglesHeader from './components/RunglesHeader.jsx'
 import LandingPage from './components/LandingPage.jsx'
+import { SQLobbyShell } from '../../rae-side-quest/packages/sq-ui/index.js'
 import SoloGamePage from './components/SoloGamePage.jsx'
 import MultiGamePage from './components/MultiGamePage.jsx'
 import StatsModal from './components/StatsModal.jsx'
@@ -76,31 +77,38 @@ function AppInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rungles-50 via-pink-50 to-rungles-100 dark:bg-[#0f0a1e] dark:bg-none text-rungles-900 dark:text-rungles-100 font-body">
-      <RunglesHeader
-        profile={profile}
-        onOpenStats={() => setStatsOpen(true)}
-      />
+    <>
+      {view === 'landing' ? (
+        <SQLobbyShell
+          header={<RunglesHeader profile={profile} onOpenStats={() => setStatsOpen(true)} />}
+          className="text-rungles-900 dark:text-rungles-100 font-body"
+        >
+          <LandingPage
+            profile={profile}
+            myUserId={session?.user?.id}
+            onPlaySolo={() => setView('solo')}
+            onEnterGame={(gameId) => { setCurrentGameId(gameId); setView('multi') }}
+          />
+        </SQLobbyShell>
+      ) : (
+        <div className="min-h-screen bg-gradient-to-br from-rungles-50 via-pink-50 to-rungles-100 dark:bg-[#0f0a1e] dark:bg-none text-rungles-900 dark:text-rungles-100 font-body">
+          <RunglesHeader
+            profile={profile}
+            onOpenStats={() => setStatsOpen(true)}
+          />
 
-      {view === 'landing' && (
-        <LandingPage
-          profile={profile}
-          myUserId={session?.user?.id}
-          onPlaySolo={() => setView('solo')}
-          onEnterGame={(gameId) => { setCurrentGameId(gameId); setView('multi') }}
-        />
-      )}
+          {view === 'solo' && (
+            <SoloGamePage onBack={() => setView('landing')} />
+          )}
 
-      {view === 'solo' && (
-        <SoloGamePage onBack={() => setView('landing')} />
-      )}
-
-      {view === 'multi' && currentGameId && (
-        <MultiGamePage
-          gameId={currentGameId}
-          myUserId={session?.user?.id}
-          onLeave={() => { setCurrentGameId(null); setView('landing') }}
-        />
+          {view === 'multi' && currentGameId && (
+            <MultiGamePage
+              gameId={currentGameId}
+              myUserId={session?.user?.id}
+              onLeave={() => { setCurrentGameId(null); setView('landing') }}
+            />
+          )}
+        </div>
       )}
 
       <StatsModal
@@ -110,7 +118,7 @@ function AppInner() {
       />
 
       <Toaster position="top-center" />
-    </div>
+    </>
   )
 }
 

@@ -1,9 +1,18 @@
+import sqPreset from '../rae-side-quest/packages/sq-ui/tailwind-preset.js';
+
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-  darkMode: 'class',
+  presets: [sqPreset],
+  content: [
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
+    '../rae-side-quest/packages/sq-ui/**/*.{js,jsx}',
+  ],
   theme: {
     extend: {
+      // Keep `rungles` palette as an alias for the canonical wordy purple
+      // so existing rungles-* classes continue to work without a mass rename.
+      // Identical hex values — visual outcome is uniform.
       colors: {
         rungles: {
           50:  '#faf5ff',
@@ -18,15 +27,6 @@ export default {
           900: '#581c87',
         },
       },
-      fontFamily: {
-        display: ['Fredoka One', 'cursive'],
-        body: ['Nunito', 'sans-serif'],
-      },
-      boxShadow: {
-        tile: '2px 3px 0px rgba(88,28,135,0.4)',
-        'tile-hover': '3px 4px 0px rgba(88,28,135,0.5)',
-      },
     },
   },
-  plugins: [],
-}
+};

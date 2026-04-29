@@ -1,120 +1,18 @@
+@import '../../rae-side-quest/packages/sq-ui/globals.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: 'Nunito', sans-serif;
-  background-color: #faf5ff;
-  color: #3b0764;
-}
+/* ── Rungles-specific styles below this line ──
+ * Shared SQ design system (body, .card, .btn-*, .tile, .dropdown-surface,
+ * scrollbar, dark mode block) is imported above. Anything Rungles-only
+ * lives here. */
 
-.dark body {
-  background-color: #1a1130;
-  color: #f3e8ff;
-}
-
-/* ── Buttons ── */
-.btn-primary {
-  @apply px-4 py-2 rounded-xl font-bold text-white transition-all duration-150 active:scale-95;
-  background: linear-gradient(135deg, #9333ea, #7e22ce);
-  box-shadow: 0 3px 0 #581c87;
-}
-.btn-primary:hover { filter: brightness(1.08); }
-.btn-primary:active { box-shadow: none; transform: translateY(2px); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.btn-secondary {
-  @apply px-4 py-2 rounded-xl font-bold border-2 border-rungles-400 text-rungles-700 bg-white transition-all duration-150 active:scale-95;
-}
-.btn-secondary:hover { @apply bg-rungles-50; }
-.dark .btn-secondary {
-  background-color: #1a1130;
-  border-color: #6d28d9;
-  color: #c4b5fd;
-}
-.dark .btn-secondary:hover { background-color: #221540; }
-
-.btn-danger {
-  @apply px-4 py-2 rounded-xl font-bold text-white bg-rose-500 transition-all duration-150 active:scale-95;
-  box-shadow: 0 3px 0 #9f1239;
-}
-
-/* ── Compact icon buttons (game action bar) — mirrors Wordy's btn-icon-* ── */
-.btn-icon {
-  @apply flex flex-col items-center justify-center rounded-lg transition-all duration-150 active:scale-95;
-  min-width: 56px;
-  height: 44px;
-  padding: 2px 8px;
-  gap: 1px;
-}
-.btn-icon:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-icon-emoji { font-size: 16px; line-height: 1; }
-.btn-icon-label { font-size: 10px; font-weight: 700; line-height: 1; }
-
-.btn-icon-primary {
-  background: linear-gradient(135deg, #9333ea, #7e22ce);
-  box-shadow: 0 2px 0 #581c87;
-  color: white;
-}
-.btn-icon-primary .btn-icon-label { color: #e9d5ff; }
-.btn-icon-primary:hover:not(:disabled) { filter: brightness(1.08); }
-.btn-icon-primary:active { box-shadow: none; transform: translateY(1px); }
-
-.btn-icon-secondary {
-  @apply border-2 border-rungles-400 bg-white;
-  color: #7e22ce;
-}
-.btn-icon-secondary .btn-icon-label { color: #7e22ce; }
-.btn-icon-secondary:hover:not(:disabled) { @apply bg-rungles-50; }
-.dark .btn-icon-secondary {
-  background-color: #1a1130;
-  border-color: #6d28d9;
-  color: #c4b5fd;
-}
-.dark .btn-icon-secondary .btn-icon-label { color: #c4b5fd; }
-.dark .btn-icon-secondary:hover:not(:disabled) { background-color: #221540; }
-
-.btn-icon-danger {
-  @apply border-2 border-red-400 bg-red-50;
-  color: #dc2626;
-}
-.btn-icon-danger .btn-icon-label { color: #dc2626; }
-.btn-icon-danger:hover:not(:disabled) { background-color: #fee2e2; }
-.dark .btn-icon-danger {
-  background-color: #2d1215;
-  border-color: #dc2626;
-  color: #fca5a5;
-}
-.dark .btn-icon-danger .btn-icon-label { color: #fca5a5; }
-
-/* ── Card / panel ── */
-.card {
-  @apply bg-white rounded-2xl shadow-md border border-rungles-100 p-4;
-}
-.dark .card {
-  background-color: #241640;
-  border-color: #2d1b55;
-}
-
-/* ── Tiles (used in solo + multi rack/word/carried) ──
-   Matches Wordy's purple rack tiles (hue 270): light pastel bg with dark
-   text in light mode, brighter pastel in dark mode (still dark text). */
-.tile {
-  @apply relative flex items-center justify-center rounded-lg font-display select-none transition-all duration-100 cursor-pointer;
-  background: linear-gradient(145deg, hsl(270, 80%, 93%), hsl(270, 70%, 87%));
-  border: 1.5px solid hsl(270, 55%, 68%);
-  box-shadow: 2px 3px 0px hsla(270, 70%, 25%, 0.4);
-  color: hsl(270, 80%, 15%);
-}
-.tile:active:not(.tile-ghost):not(.tile-disabled) {
-  transform: translateY(1px);
-  box-shadow: 1px 2px 0px hsla(270, 70%, 25%, 0.4);
-}
+/* ── Rungles-specific tile variants ──
+ * SQ ships .tile, .tile-selected, .tile-placed, .tile-disabled, .tile-value.
+ * Rungles adds premium / carried / ghost / empty variants. */
 .tile-ghost { opacity: 0.35; cursor: default; box-shadow: none; }
-.tile-selected {
-  box-shadow: 0 0 0 3px #f472b6, 2px 3px 0px hsla(270, 70%, 25%, 0.4);
-  transform: translateY(-3px);
-}
 .tile-premium {
   background: linear-gradient(145deg, hsl(45, 95%, 80%), hsl(40, 90%, 70%));
   border-color: hsl(35, 80%, 55%);
@@ -127,25 +25,6 @@ body {
   box-shadow: 0 2px 0 #737373;
 }
 .tile-carried .tile-value { color: #737373; }
-.tile-value {
-  position: absolute;
-  bottom: 2px;
-  right: 3px;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-  color: hsl(270, 65%, 40%);
-}
-
-.dark .tile {
-  background: linear-gradient(145deg, hsl(270, 70%, 78%), hsl(270, 60%, 68%));
-  border-color: hsl(270, 60%, 58%);
-  box-shadow: 2px 3px 0px hsla(270, 60%, 15%, 0.5), 0 0 8px hsla(270, 70%, 60%, 0.3);
-  color: hsl(270, 80%, 12%);
-}
-.dark .tile-selected {
-  box-shadow: 0 0 0 3px #f472b6, 2px 3px 0px hsla(270, 60%, 15%, 0.5);
-}
 .dark .tile-premium {
   background: linear-gradient(145deg, hsl(45, 90%, 75%), hsl(40, 85%, 60%));
   border-color: hsl(35, 75%, 50%);
@@ -158,7 +37,6 @@ body {
   box-shadow: 0 2px 0 #52525b;
 }
 .dark .tile-carried .tile-value { color: #a1a1aa; }
-.dark .tile-value { color: hsl(270, 70%, 30%); }
 
 /* Empty word slot (placed inline beside .tile in the word area) */
 .tile-empty {
@@ -183,13 +61,23 @@ body {
   color: #fbbf24;
 }
 
-/* Header title — match Wordy: text-rungles-700 in both modes (dark rule below). */
+/* Rungles palette dark-mode overrides — mirror sq-ui's wordy-* overrides
+ * for the rungles-* alias so dark mode looks identical. */
 .dark .text-rungles-700 { color: #c4b5fd; }
 .dark .text-rungles-600 { color: #a78bfa; }
 .dark .text-rungles-800 { color: #ddd6fe; }
+.dark .text-rungles-200 { color: #ddd6fe; }
+.dark .text-rungles-300 { color: #c4b5fd; }
+.dark .text-rungles-100 { color: #ede0ff; }
+.dark .text-rungles-900 { color: #ede0ff; }
+.dark .border-rungles-100 { border-color: #2d1b55; }
+.dark .border-rungles-200 { border-color: #3d2070; }
+.dark .border-rungles-400 { border-color: #6d28d9; }
+.dark .bg-rungles-50  { background-color: #1a1130; }
+.dark .bg-rungles-100 { background-color: #221540; }
+.dark .bg-rungles-200 { background-color: #2d1b55; }
 
-/* Ladder letters — explicit because we want rack-sourced letters dark purple
-   in light mode regardless of the global text-rungles-700 lightening above. */
+/* Ladder letters — Rungles-specific gameplay element */
 .ladder-letter {
   display: inline-block;
   font-weight: 800;
@@ -201,7 +89,7 @@ body {
 .ladder-letter-premium { color: #b45309 !important; }
 .dark .ladder-letter-premium { color: #fbbf24 !important; }
 
-/* ── Lobby chip strip ── */
+/* ── Lobby chip strip — Rungles-specific ── */
 .lobby-chip {
   @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold;
   background: #f3e8ff;
@@ -246,7 +134,7 @@ body {
   80% { transform: translateX(3px); }
 }
 
-/* Sticky action bar at the bottom of the game viewport. */
+/* Sticky action bar at the bottom of the game viewport — Rungles solo. */
 .action-bar-sticky {
   position: sticky;
   bottom: 0;
@@ -257,14 +145,4 @@ body {
 }
 .dark .action-bar-sticky {
   background: linear-gradient(to top, #1a1130 70%, rgba(26,17,48,0));
-}
-
-/* SQ dropdown-surface treatment — see rae-side-quest/docs/sq-conventions.md */
-.dropdown-surface {
-  background-color: #fff;
-  border: 1px solid #e9d5ff;
-}
-.dark .dropdown-surface {
-  background-color: #241640 !important;
-  border-color: #6d28d9 !important;
 }

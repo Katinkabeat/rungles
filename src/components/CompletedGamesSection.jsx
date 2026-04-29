@@ -5,6 +5,7 @@ import {
   fetchUnseenResults, dismissResult, subscribeFinishes,
 } from '../lib/lobbyService.js'
 import { supabase } from '../lib/supabase.js'
+import { SQCompletedGamesCard } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
 // Self-contained section that fetches the user's unseen finished games,
 // renders them as dismissable banners, and shows a toast when a new game
@@ -75,15 +76,14 @@ export default function CompletedGamesSection({ myUserId, onEnterGame }) {
   }
 
   return (
-    <section className="card">
-      <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-3">
-        🏁 Completed Games
-      </h2>
-      <LobbyResultsBanner
-        results={results}
-        onView={onEnterGame}
-        onDismiss={handleDismiss}
-      />
-    </section>
+    <SQCompletedGamesCard>
+      {results.length > 0 ? (
+        <LobbyResultsBanner
+          results={results}
+          onView={onEnterGame}
+          onDismiss={handleDismiss}
+        />
+      ) : null}
+    </SQCompletedGamesCard>
   )
 }
