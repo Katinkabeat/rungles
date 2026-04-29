@@ -478,7 +478,10 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
           {carriedLetters.length === 0 ? (
             <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
           ) : (
-            <div className="space-y-1">
+            /* Width matches the 7-slot play area above (7×40px + 6×4px gap)
+               and is mx-auto centered, so the first carried tile sits
+               directly under the first play-area slot. */
+            <div className="space-y-1 mx-auto" style={{ width: '304px' }}>
               <p className="text-xs text-rungles-600 dark:text-rungles-300">
                 {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
               </p>
