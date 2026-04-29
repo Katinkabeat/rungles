@@ -296,7 +296,7 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
                   <Tile
                     key={idx}
                     letter={c.letter}
-                    variant="small"
+                    variant="in-word"
                     carried
                     ghost={used}
                     selected={selectionMatches(state, 'carried', idx)}

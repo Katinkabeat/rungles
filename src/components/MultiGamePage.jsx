@@ -489,7 +489,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
                     <Tile
                       key={idx}
                       letter={letter}
-                      variant="small"
+                      variant="in-word"
                       carried
                       ghost={used}
                       selected={selectionMatches('carried', idx)}
