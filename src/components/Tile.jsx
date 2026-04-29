@@ -45,7 +45,7 @@ export default function Tile({
       aria-label={ariaLabel ?? (isBlank ? 'Blank tile' : `Tile ${letter}, ${value} points`)}
       className={`${stateClasses} shrink-0`}
     >
-      <span className="font-display">{isBlank ? '' : letter}</span>
+      <span>{isBlank ? '' : letter}</span>
       {value > 0 && <span className="tile-value">{value}</span>}
     </button>
   )
