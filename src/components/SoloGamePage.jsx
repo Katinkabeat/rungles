@@ -241,7 +241,7 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
 
       <section className="card !p-3 space-y-2 mb-2" aria-label="Current rung">
         <div
-          className={`flex justify-center gap-1 transition-all ${
+          className={`flex gap-1 transition-all ${
             flash === 'valid'
               ? 'animate-pulse'
               : flash === 'invalid'
@@ -310,7 +310,7 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
       </section>
 
       <section className="card !p-3 mb-2" aria-label="Your tile rack">
-        <div className="flex items-center justify-center gap-1 flex-nowrap">
+        <div className="flex items-center gap-1 flex-nowrap">
           {state.rack.map((letter, idx) => {
             const inWord = usedRackIdxs.has(idx)
             return (

@@ -440,7 +440,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
           <div className="text-xs text-rungles-500">
             {premiumPos ? `2× slot: position ${premiumPos}` : '2× slot: —'}
           </div>
-          <div className="flex justify-center gap-1">
+          <div className="flex gap-1">
             {Array.from({ length: MAX_WORD_LEN }, (_, slot) => {
               const entry = selected[slot]
               const isPremium = (slot + 1) === premiumPos
@@ -506,7 +506,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
 
       {!isComplete && (
         <section className="card !p-3 mb-2" aria-label="Your tile rack">
-          <div className="flex items-center justify-center gap-1 flex-nowrap">
+          <div className="flex items-center gap-1 flex-nowrap">
             {order.map(serverIdx => {
               const letter = rack[serverIdx]
               const inWord = usedRackIdxs.has(serverIdx)
