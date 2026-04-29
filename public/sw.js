@@ -4,7 +4,7 @@
 // switches to skipWaiting + clients.claim so users get the new version on
 // the first reload after install — no two-reload dance.
 
-const CACHE_VERSION = 'rungles-v17';
+const CACHE_VERSION = 'rungles-v18';
 
 self.addEventListener('install', (event) => {
   // Take over from the previous SW immediately on the next reload.
