@@ -28,10 +28,17 @@ function AppInner() {
 
   useEffect(() => {
     let alive = true
-    ;(async () => {
-      const { data } = await supabase.auth.getSession()
-      if (!alive) return
-      if (!data.session) {
+    let initialized = false
+
+    // Wait for Supabase's auth subsystem to fire its first state event before
+    // marking boot ready. On iOS Safari, getSession() can resolve before the
+    // JWT is actually attached to outbound requests, causing the first RPC
+    // call to fail with "TypeError: Load failed". onAuthStateChange's
+    // INITIAL_SESSION event confirms auth is fully wired.
+    const handleSession = async (sess) => {
+      if (!alive || initialized) return
+      initialized = true
+      if (!sess) {
         if (import.meta.env.DEV) {
           setSession({ user: { id: '00000000-0000-0000-0000-000000000000', email: 'dev@local' } })
           setProfile({ username: 'dev-user', avatar_hue: 270 })
@@ -41,19 +48,23 @@ function AppInner() {
         redirectToSqLogin()
         return
       }
-      setSession(data.session)
-      const userId = data.session.user.id
+      setSession(sess)
       const { data: prof } = await supabase
         .from('profiles')
         .select('username, avatar_hue')
-        .eq('id', userId)
+        .eq('id', sess.user.id)
         .maybeSingle()
       if (!alive) return
-      setProfile(prof ?? { username: data.session.user.email, avatar_hue: 270 })
+      setProfile(prof ?? { username: sess.user.email, avatar_hue: 270 })
       setBoot('ready')
-    })()
+    }
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      handleSession(sess)
+    })
+
     loadDictionary().catch(() => {})
-    return () => { alive = false }
+    return () => { alive = false; sub?.subscription?.unsubscribe() }
   }, [])
 
   // Deep-link: ?game=<id> jumps straight into multiplayer.
