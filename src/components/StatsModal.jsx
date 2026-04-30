@@ -6,7 +6,7 @@ import {
 
 export default function StatsModal({ open, myUserId, onClose }) {
   const ref = useRef(null)
-  const [tab, setTab] = useState('me')
+  const [tab, setTab] = useState('board')
   const [meRows, setMeRows] = useState(null)
   const [meErr, setMeErr] = useState(null)
   const [board, setBoard] = useState(null)
@@ -49,8 +49,8 @@ export default function StatsModal({ open, myUserId, onClose }) {
         </div>
 
         <div className="flex gap-1 mb-3 border-b border-rungles-100 dark:border-rungles-900">
-          <Tab active={tab === 'me'} onClick={() => setTab('me')}>👤 Me</Tab>
           <Tab active={tab === 'board'} onClick={() => setTab('board')}>🏆 Leaderboard</Tab>
+          <Tab active={tab === 'me'} onClick={() => setTab('me')}>👤 Me</Tab>
         </div>
 
         {tab === 'me' && <MyStatsBody rows={meRows} err={meErr} />}
