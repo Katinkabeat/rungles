@@ -59,23 +59,47 @@ export async function refreshRack(gameId, myUserId) {
   return data?.rack ?? []
 }
 
+// Retry an RPC once on network-layer failure (thrown TypeError = "Load failed"
+// on iOS Safari / "Failed to fetch" on Chrome). Server-returned errors (bad
+// word, not your turn, etc.) come back in the `error` field and are NOT
+// retried. Mitigates an iOS-Safari-specific bug where the first action after
+// entering a multi game can fail because the realtime websocket handshake or
+// auth-token auto-refresh is contending with the RPC fetch.
+async function rpcWithRetry(fn) {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof TypeError) {
+      await new Promise(r => setTimeout(r, 400))
+      return await fn()
+    }
+    throw e
+  }
+}
+
 // Submit a rung. Returns the score awarded.
 // word_sources: 0 for carried, 1-based rack index otherwise.
 export async function submitRung(gameId, word, sources) {
-  const { data, error } = await supabase.rpc('rg_submit_rung', {
-    p_game_id: gameId, p_word: word, p_word_sources: sources,
-  })
+  const { data, error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_submit_rung', {
+      p_game_id: gameId, p_word: word, p_word_sources: sources,
+    })
+  )
   if (error) throw error
   return data
 }
 
 export async function skipTurn(gameId) {
-  const { error } = await supabase.rpc('rg_skip_turn', { p_game_id: gameId })
+  const { error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_skip_turn', { p_game_id: gameId })
+  )
   if (error) throw error
 }
 
 export async function giveUpMatch(gameId) {
-  const { error } = await supabase.rpc('rg_give_up', { p_game_id: gameId })
+  const { error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_give_up', { p_game_id: gameId })
+  )
   if (error) throw error
 }
 
