@@ -1,11 +1,22 @@
-import React, { useState } from 'react'
+import React, { lazy, Suspense, useState } from 'react'
 import toast from 'react-hot-toast'
 import LobbyList from './LobbyList.jsx'
 import CompletedGamesSection from './CompletedGamesSection.jsx'
 import { createGame } from '../lib/lobbyService.js'
 
-export default function LandingPage({ profile, myUserId, onPlaySolo, onEnterGame }) {
+// Lazy-loaded so non-admins never download the admin panel code.
+const AdminPanel = lazy(() => import('./AdminPanel.jsx'))
+
+export default function LandingPage({ profile, myUserId, isAdmin, lobbyTab, onPlaySolo, onEnterGame }) {
   const [creating, setCreating] = useState(false)
+
+  if (lobbyTab === 'admin' && isAdmin) {
+    return (
+      <Suspense fallback={<p className="text-sm text-rungles-500">Loading admin panel…</p>}>
+        <AdminPanel />
+      </Suspense>
+    )
+  }
 
   async function handleCreate() {
     setCreating(true)

@@ -9,9 +9,13 @@ export default function LobbyResultsBanner({ results, onView, onDismiss }) {
   return (
     <div className="space-y-2">
       {results.map(r => {
-        const headline = r.isForfeit
-          ? (r.gaveUp ? '🏳️ You gave up' : `🏳️ ${r.opponentName} gave up`)
-          : (r.isWinner ? '🏆 You won!' : `🏆 ${r.winnerName} won`)
+        const headline = r.isAdminClosed
+          ? '🛑 Game closed by admin'
+          : r.isForfeit
+            ? (r.gaveUp ? '🏳️ You gave up' : `🏳️ ${r.opponentName} gave up`)
+            : r.winnerUserId
+              ? (r.isWinner ? '🏆 You won!' : `🏆 ${r.winnerName} won`)
+              : "🤝 It's a tie!"
         const subtext = `You ${r.myScore} · ${r.opponentName} ${r.opponentScore}`
         return (
           <div

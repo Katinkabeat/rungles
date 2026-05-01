@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import MultiLadderRow from './MultiLadderRow.jsx'
 
 export default function MultiEndGameModal({
-  open, rungs, seedWord, me, opponent, winnerPlayerIdx, forfeitUserId, onBackToLobby, onClose,
+  open, rungs, seedWord, me, opponent, winnerPlayerIdx, forfeitUserId, closedByAdmin, onBackToLobby, onClose,
 }) {
   const ref = useRef(null)
 
@@ -13,14 +13,18 @@ export default function MultiEndGameModal({
     if (!open && dlg.open) dlg.close()
   }, [open])
 
-  const youWon = winnerPlayerIdx != null && winnerPlayerIdx === me?.playerIdx
+  const youWon = !closedByAdmin && winnerPlayerIdx != null && winnerPlayerIdx === me?.playerIdx
   const isForfeit = !!forfeitUserId
   const youGaveUp = isForfeit && forfeitUserId === me?.userId
-  const title = isForfeit
-    ? (youGaveUp
-        ? `🏳️ You gave up — ${opponent?.username ?? 'Opponent'} wins`
-        : `🏳️ ${opponent?.username ?? 'Opponent'} gave up — you win!`)
-    : (youWon ? '🎉 You won!' : `${opponent?.username ?? 'Opponent'} won.`)
+  const title = closedByAdmin
+    ? '🛑 Game closed by admin'
+    : isForfeit
+      ? (youGaveUp
+          ? `🏳️ You gave up — ${opponent?.username ?? 'Opponent'} wins`
+          : `🏳️ ${opponent?.username ?? 'Opponent'} gave up — you win!`)
+      : winnerPlayerIdx != null
+        ? (youWon ? '🎉 You won!' : `${opponent?.username ?? 'Opponent'} won.`)
+        : "🤝 It's a tie!"
 
   return (
     <dialog

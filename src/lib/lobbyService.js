@@ -61,7 +61,7 @@ export async function fetchUnseenResults(myUserId) {
     .from('rg_players')
     .select(`
       game_id, player_idx, score, dismissed_at,
-      rg_games!inner ( id, status, finished_at, winner_player_idx, forfeit_user_id )
+      rg_games!inner ( id, status, finished_at, winner_player_idx, forfeit_user_id, closed_by_admin )
     `)
     .eq('user_id', myUserId)
     .is('dismissed_at', null)
@@ -106,14 +106,16 @@ export async function fetchUnseenResults(myUserId) {
     const winner = all.find(p => p.player_idx === game?.winner_player_idx)
     const isForfeit = !!game?.forfeit_user_id
     const gaveUp = isForfeit && game.forfeit_user_id === myUserId
+    const isAdminClosed = !!game?.closed_by_admin
     return {
       gameId: r.game_id,
       finishedAt: game?.finished_at,
-      isWinner: winner?.user_id === myUserId,
+      isWinner: !isAdminClosed && winner?.user_id === myUserId,
       isForfeit,
       gaveUp,
-      winnerUserId: winner?.user_id,
-      winnerName: usernameById[winner?.user_id] ?? '?',
+      isAdminClosed,
+      winnerUserId: isAdminClosed ? null : winner?.user_id,
+      winnerName: isAdminClosed ? null : (usernameById[winner?.user_id] ?? '?'),
       opponentName: usernameById[opponent?.user_id] ?? '?',
       myScore: me?.score ?? 0,
       opponentScore: opponent?.score ?? 0,

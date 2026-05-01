@@ -6,7 +6,7 @@ import SettingsDropdown from './SettingsDropdown.jsx'
 // Header with avatar + title + 🏠 + ⚙️.
 // Dropdowns are mutually exclusive — opening one closes the other.
 // Stats modal is owned here; the avatar dropdown's "Stats" item triggers `onOpenStats`.
-export default function RunglesHeader({ profile, onOpenStats }) {
+export default function RunglesHeader({ profile, onOpenStats, isAdmin, lobbyTab, onToggleAdmin }) {
   const [open, setOpen] = useState(null) // 'avatar' | 'settings' | null
 
   return (
@@ -51,6 +51,9 @@ export default function RunglesHeader({ profile, onOpenStats }) {
         <SettingsDropdown
           open={open === 'settings'}
           onClose={() => setOpen(null)}
+          isAdmin={isAdmin}
+          lobbyTab={lobbyTab}
+          onToggleAdmin={onToggleAdmin}
         />
       </div>
     </header>

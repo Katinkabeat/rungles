@@ -4,7 +4,7 @@ import { useGameActions } from '../contexts/GameActionsContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import RulesModal from './RulesModal.jsx'
 
-export default function SettingsDropdown({ open, onClose }) {
+export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onToggleAdmin }) {
   const ref = useRef(null)
   const { isDark, toggle } = useTheme()
   const { hintAction } = useGameActions()
@@ -42,7 +42,7 @@ export default function SettingsDropdown({ open, onClose }) {
         <div
           ref={ref}
           role="menu"
-          className="dropdown-surface absolute right-2 top-12 z-20 min-w-[220px] rounded-2xl shadow-xl p-2"
+          className="card dropdown-surface absolute right-2 top-12 z-20 min-w-[220px] rounded-2xl shadow-xl p-2"
         >
           <button
             type="button"
@@ -71,6 +71,16 @@ export default function SettingsDropdown({ open, onClose }) {
             <span>{isDark ? '🌙 Dark' : '☀️ Light'}</span>
             <span className="text-xs text-rungles-500">tap to switch</span>
           </button>
+          {isAdmin && onToggleAdmin && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { onClose(); onToggleAdmin() }}
+              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
+            >
+              {lobbyTab === 'admin' ? '← Lobby' : '🔒 Admin panel'}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"

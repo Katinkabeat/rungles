@@ -581,6 +581,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
         opponent={opponent}
         winnerPlayerIdx={game?.winner_player_idx}
         forfeitUserId={game?.forfeit_user_id}
+        closedByAdmin={!!game?.closed_by_admin}
         onBackToLobby={() => { setEndgameOpen(false); onLeave() }}
         onClose={() => setEndgameOpen(false)}
       />

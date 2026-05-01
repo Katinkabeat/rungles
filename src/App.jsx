@@ -21,6 +21,8 @@ function AppInner() {
   const [boot, setBoot] = useState('checking')   // 'checking' | 'ready'
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [adminRecord, setAdminRecord] = useState(null) // null = not admin
+  const [lobbyTab, setLobbyTab] = useState('lobby') // 'lobby' | 'admin'
   // view: 'landing' | 'solo' | 'multi'
   const [view, setView] = useState('landing')
   const [currentGameId, setCurrentGameId] = useState(null)
@@ -56,6 +58,15 @@ function AppInner() {
         .maybeSingle()
       if (!alive) return
       setProfile(prof ?? { username: sess.user.email, avatar_hue: 270 })
+      // Load admin record (lives in shared `admins` table). Non-admins
+      // get null and never see the admin panel toggle.
+      const { data: adminRow } = await supabase
+        .from('admins')
+        .select('user_id, permissions, is_master')
+        .eq('user_id', sess.user.id)
+        .maybeSingle()
+      if (!alive) return
+      setAdminRecord(adminRow ?? null)
       setBoot('ready')
     }
 
@@ -93,12 +104,22 @@ function AppInner() {
     <>
       {view === 'landing' && (
         <SQLobbyShell
-          header={<RunglesHeader profile={profile} onOpenStats={openStats} />}
+          header={
+            <RunglesHeader
+              profile={profile}
+              onOpenStats={openStats}
+              isAdmin={!!adminRecord}
+              lobbyTab={lobbyTab}
+              onToggleAdmin={() => setLobbyTab(t => t === 'admin' ? 'lobby' : 'admin')}
+            />
+          }
           className="text-rungles-900 dark:text-rungles-100 font-body"
         >
           <LandingPage
             profile={profile}
             myUserId={session?.user?.id}
+            isAdmin={!!adminRecord}
+            lobbyTab={lobbyTab}
             onPlaySolo={() => setView('solo')}
             onEnterGame={(gameId) => { setCurrentGameId(gameId); setView('multi') }}
           />
