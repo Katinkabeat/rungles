@@ -10,8 +10,8 @@ export default function LandingPage({ profile, myUserId, onPlaySolo, onEnterGame
   async function handleCreate() {
     setCreating(true)
     try {
-      const gameId = await createGame({ totalRungs: 10 })
-      onEnterGame(gameId)
+      await createGame({ totalRungs: 10 })
+      toast.success('Game created — waiting for an opponent')
     } catch (e) {
       toast.error(`Couldn't create game: ${e.message ?? e}`)
     } finally {
