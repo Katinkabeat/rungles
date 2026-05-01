@@ -1,5 +1,6 @@
 // Pure data layer for the stats modal: fetch personal solo-game history +
-// leaderboards from rg_solo_games. UI lives in StatsModal.jsx.
+// leaderboards from rg_solo_games, plus personal multiplayer stats derived
+// from rg_players / rg_games / rg_rungs. UI lives in StatsModal.jsx.
 
 import { supabase } from './supabase.js'
 
@@ -38,6 +39,40 @@ export function summarizeStats(rows) {
     avgRungScore,
     bestRung,
     recent: rows.slice(0, 10),
+  }
+}
+
+// ── personal multiplayer stats ───────────────────────────────────
+export async function fetchMyMultiplayerStats(userId) {
+  const [playersRes, bestRungRes] = await Promise.all([
+    supabase
+      .from('rg_players')
+      .select('player_idx, score, rg_games!inner(status, winner_player_idx)')
+      .eq('user_id', userId)
+      .eq('rg_games.status', 'complete'),
+    supabase
+      .from('rg_rungs')
+      .select('word, rung_score')
+      .eq('player_user_id', userId)
+      .order('rung_score', { ascending: false })
+      .limit(1),
+  ])
+  if (playersRes.error) throw playersRes.error
+  if (bestRungRes.error) throw bestRungRes.error
+
+  const rows = playersRes.data ?? []
+  if (rows.length === 0) {
+    return { matches: 0, wins: 0, avgScore: null, bestRung: null }
+  }
+  const wins = rows.filter(r => r.player_idx === r.rg_games?.winner_player_idx).length
+  const totalScore = rows.reduce((s, r) => s + (r.score ?? 0), 0)
+  const avgScore = Math.round(totalScore / rows.length)
+  const best = (bestRungRes.data ?? [])[0] ?? null
+  return {
+    matches: rows.length,
+    wins,
+    avgScore,
+    bestRung: best ? { word: best.word, score: best.rung_score } : null,
   }
 }
 
