@@ -66,7 +66,8 @@ export async function fetchUnseenResults(myUserId) {
     .eq('user_id', myUserId)
     .is('dismissed_at', null)
     .eq('rg_games.status', 'complete')
-    .limit(50)
+    .order('finished_at', { referencedTable: 'rg_games', ascending: false })
+    .limit(10)
   if (error) throw error
 
   const unseen = (myRows ?? []).filter(r => !seen.has(r.game_id))
