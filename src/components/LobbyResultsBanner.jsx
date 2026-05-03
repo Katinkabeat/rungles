@@ -1,9 +1,8 @@
 import React from 'react'
 
-// Persistent banner of finished games this user hasn't dismissed yet.
-// "View Game" button (right of subtext, left of ✕) opens the final board.
-// ✕ button → dismiss (server + localStorage). No auto-dismiss on view.
-export default function LobbyResultsBanner({ results, onView, onDismiss }) {
+// Banner list of the user's last 10 finished games.
+// "View Game" button opens the final board.
+export default function LobbyResultsBanner({ results, onView }) {
   if (!results || results.length === 0) return null
 
   return (
@@ -36,14 +35,6 @@ export default function LobbyResultsBanner({ results, onView, onDismiss }) {
               className="shrink-0 text-xs font-bold text-rungles-700 dark:text-rungles-200 underline hover:no-underline"
             >
               View Game
-            </button>
-            <button
-              type="button"
-              onClick={() => onDismiss(r.gameId)}
-              aria-label="Dismiss result"
-              className="shrink-0 w-7 h-7 rounded-full text-rungles-500 hover:text-rungles-700 hover:bg-white/60 dark:text-rungles-300 dark:hover:bg-black/20 flex items-center justify-center text-sm"
-            >
-              ✕
             </button>
           </div>
         )

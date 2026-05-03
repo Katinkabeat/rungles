@@ -2,15 +2,15 @@ import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import LobbyResultsBanner from './LobbyResultsBanner.jsx'
 import {
-  fetchUnseenResults, dismissResult, subscribeFinishes,
+  fetchUnseenResults, subscribeFinishes,
 } from '../lib/lobbyService.js'
 import { supabase } from '../lib/supabase.js'
 import { SQCompletedGamesCard } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
-// Self-contained section that fetches the user's unseen finished games,
-// renders them as dismissable banners, and shows a toast when a new game
-// finishes. Owned by LandingPage so the layout can place it as its own
-// section card below Multiplayer.
+// Self-contained section that fetches the user's last 10 finished games,
+// renders them as banners, and shows a toast when a new game finishes.
+// Owned by LandingPage so the layout can place it as its own section
+// card below Multiplayer.
 export default function CompletedGamesSection({ myUserId, onEnterGame }) {
   const [results, setResults] = useState([])
 
@@ -65,23 +65,12 @@ export default function CompletedGamesSection({ myUserId, onEnterGame }) {
     }
   }, [myUserId, refreshResults, onEnterGame])
 
-  async function handleDismiss(gameId) {
-    setResults(prev => prev.filter(r => r.gameId !== gameId))
-    try {
-      await dismissResult(myUserId, gameId)
-    } catch (e) {
-      toast.error(`Couldn't dismiss: ${e.message ?? e}`)
-      refreshResults()
-    }
-  }
-
   return (
     <SQCompletedGamesCard>
       {results.length > 0 ? (
         <LobbyResultsBanner
           results={results}
           onView={onEnterGame}
-          onDismiss={handleDismiss}
         />
       ) : null}
     </SQCompletedGamesCard>

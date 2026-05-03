@@ -47,37 +47,29 @@ export function subscribeLobby(onChange) {
     .subscribe()
 }
 
-// Returns finished games this user was in and hasn't dismissed yet.
+// Returns the user's last 10 finished games (most recent first).
 // Each entry: { gameId, finishedAt, isWinner, isForfeit, gaveUp,
 //   winnerUserId, winnerName, opponentName, myScore, opponentScore }.
-// localStorage cache (keyed per user) gives instant filtering even before
-// the server's dismissed_at write lands.
 export async function fetchUnseenResults(myUserId) {
-  const seenKey = `rungles_seen_results_${myUserId}`
-  const seen = new Set(JSON.parse(localStorage.getItem(seenKey) ?? '[]'))
-
-  // My player rows for finished games where I haven't dismissed.
-  const { data: myRows, error } = await supabase
-    .from('rg_players')
+  // Query rg_games as the parent so order-by finished_at sorts the rows we
+  // limit on (ordering by a joined column only sorts the embed).
+  const { data: gms, error } = await supabase
+    .from('rg_games')
     .select(`
-      game_id, player_idx, score, dismissed_at,
-      rg_games!inner ( id, status, finished_at, winner_player_idx, forfeit_user_id, closed_by_admin )
+      id, status, finished_at, winner_player_idx, forfeit_user_id, closed_by_admin,
+      rg_players!inner ( user_id, player_idx, score )
     `)
-    .eq('user_id', myUserId)
-    .is('dismissed_at', null)
-    .eq('rg_games.status', 'complete')
-    .order('finished_at', { referencedTable: 'rg_games', ascending: false })
+    .eq('status', 'complete')
+    .eq('rg_players.user_id', myUserId)
+    .order('finished_at', { ascending: false })
     .limit(10)
   if (error) throw error
 
-  const unseen = (myRows ?? []).filter(r => !seen.has(r.game_id))
+  const unseen = (gms ?? []).map(g => ({
+    game_id: g.id,
+    rg_games: g,
+  }))
   if (unseen.length === 0) return []
-
-  // Sort newest-first by finished_at (client-side; ordering on a foreign-table
-  // column via supabase-js can be flaky).
-  unseen.sort((a, b) =>
-    (b.rg_games?.finished_at ?? '').localeCompare(a.rg_games?.finished_at ?? '')
-  )
 
   const gameIds = unseen.map(r => r.game_id)
   const { data: allPlayers } = await supabase
@@ -122,18 +114,6 @@ export async function fetchUnseenResults(myUserId) {
       opponentScore: opponent?.score ?? 0,
     }
   })
-}
-
-// Mark a finished game's result as dismissed (won't appear in the banner
-// next time). Server-of-truth via RPC; localStorage for instant UI cache.
-export async function dismissResult(myUserId, gameId) {
-  const seenKey = `rungles_seen_results_${myUserId}`
-  const seen = new Set(JSON.parse(localStorage.getItem(seenKey) ?? '[]'))
-  seen.add(gameId)
-  localStorage.setItem(seenKey, JSON.stringify([...seen]))
-
-  const { error } = await supabase.rpc('rg_dismiss_result', { p_game_id: gameId })
-  if (error) throw error
 }
 
 // Lobby-scoped subscription that fires onFinish(gameId) when any rg_games row
