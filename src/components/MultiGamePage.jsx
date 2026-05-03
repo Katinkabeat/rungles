@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import Tile, { EmptySlot } from './Tile.jsx'
+import Tile from './Tile.jsx'
+import BoardSlots from './BoardSlots.jsx'
+import CarriedTiles from './CarriedTiles.jsx'
 import BlankPickerModal from './BlankPickerModal.jsx'
 import MultiLadderRow, { SeedRow } from './MultiLadderRow.jsx'
 import MultiHistoryModal from './MultiHistoryModal.jsx'
@@ -12,6 +14,7 @@ import {
 } from '../lib/matchService.js'
 import { scoreRung } from '../lib/scoring.js'
 import { identityOrder, swapInOrder, shuffleOrder, normalizeOrder } from '../lib/rackOrder.js'
+import { useBoardDerived } from '../hooks/useBoardDerived.js'
 import RunglesHeader from './RunglesHeader.jsx'
 import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
@@ -189,24 +192,14 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   })()
   const fromSeed = rungs.length === 0
 
-  const filled = selected.filter(Boolean).length
-  const carriedUsed = selected.filter(e => e && e.source === 'carried').length
-  const currentWord = selected.filter(Boolean).map(e => e.letter).join('')
+  const { filled, hasGap, currentWord, usedRackIdxs, usedCarriedIdxs } = useBoardDerived(selected)
+  const carriedUsed = usedCarriedIdxs.size
   const previewPts = filled > 0 ? scoreRung(selected, premiumPos) : null
-
-  const lastFilledSlot = (() => {
-    for (let i = MAX_WORD_LEN - 1; i >= 0; i--) if (selected[i]) return i
-    return -1
-  })()
-  const hasGap = lastFilledSlot >= 0 && lastFilledSlot + 1 !== filled
 
   const order = (() => {
     if (Array.isArray(rackOrder) && rackOrder.length === rack.length) return rackOrder
     return rack.map((_, i) => i)
   })()
-
-  const usedRackIdxs = new Set(selected.filter(e => e && e.source === 'rack').map(e => e.idx))
-  const usedCarriedIdxs = new Set(selected.filter(e => e && e.source === 'carried').map(e => e.idx))
 
   const nextRungNumber = rungs.length + 1
   const totalRungs = game?.total_rungs ?? 10
@@ -462,34 +455,12 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
           <div className="text-xs text-rungles-500">
             {premiumPos ? `2× slot: position ${premiumPos}` : '2× slot: —'}
           </div>
-          <div className="flex justify-center gap-1">
-            {Array.from({ length: MAX_WORD_LEN }, (_, slot) => {
-              const entry = selected[slot]
-              const isPremium = (slot + 1) === premiumPos
-              if (entry) {
-                const isPremiumHit = isPremium && entry.source === 'rack'
-                return (
-                  <Tile
-                    key={slot}
-                    letter={entry.letter}
-                    variant="in-word"
-                    premium={isPremiumHit}
-                    carried={entry.source === 'carried'}
-                    onClick={() => handleSlotTap(slot)}
-                    disabled={!playable}
-                  />
-                )
-              }
-              return (
-                <EmptySlot
-                  key={slot}
-                  premium={isPremium}
-                  onClick={() => handleSlotTap(slot)}
-                  ariaLabel={`Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`}
-                />
-              )
-            })}
-          </div>
+          <BoardSlots
+            selected={selected}
+            premiumPos={premiumPos}
+            onSlotTap={handleSlotTap}
+            tileDisabled={!playable}
+          />
 
           <div className="flex items-center justify-end text-xs">
             <span className={`font-display text-rungles-700 ${previewPts != null ? 'opacity-100' : 'opacity-0'}`}>
@@ -497,35 +468,15 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
             </span>
           </div>
 
-          {carriedLetters.length === 0 ? (
-            <p className="text-xs text-rungles-500 italic">Carried: — (no source available)</p>
-          ) : (
-            /* Width matches the 7-slot play area above (7×40px + 6×4px gap)
-               and is mx-auto centered, so the first carried tile sits
-               directly under the first play-area slot. */
-            <div className="space-y-1 mx-auto" style={{ width: '304px' }}>
-              <p className="text-xs text-rungles-600 dark:text-rungles-300">
-                {fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
-              </p>
-              <div className="flex gap-1 flex-wrap">
-                {carriedLetters.map((letter, idx) => {
-                  const used = usedCarriedIdxs.has(idx)
-                  return (
-                    <Tile
-                      key={idx}
-                      letter={letter}
-                      variant="in-word"
-                      carried
-                      ghost={used}
-                      selected={selectionMatches('carried', idx)}
-                      onClick={() => !used && handleSourceTap('carried', idx)}
-                      disabled={!playable}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )}
+          <CarriedTiles
+            letters={carriedLetters}
+            usedIdxs={usedCarriedIdxs}
+            isSelected={(idx) => selectionMatches('carried', idx)}
+            onTileTap={(idx) => handleSourceTap('carried', idx)}
+            tileDisabled={!playable}
+            emptyMessage="Carried: — (no source available)"
+            label={fromSeed ? `Carried from seed (need ${CARRY_REQUIRED}):` : `Carried (need ${CARRY_REQUIRED}):`}
+          />
         </section>
       )}
 

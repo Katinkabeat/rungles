@@ -1,18 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react'
-import Tile, { EmptySlot } from './Tile.jsx'
+import Tile from './Tile.jsx'
+import BoardSlots from './BoardSlots.jsx'
+import CarriedTiles from './CarriedTiles.jsx'
 import LadderRow from './LadderRow.jsx'
 import BlankPickerModal from './BlankPickerModal.jsx'
 import HistoryModal from './HistoryModal.jsx'
 import EndGameModal from './EndGameModal.jsx'
 import { useGameActions } from '../contexts/GameActionsContext.jsx'
+import { useBoardDerived } from '../hooks/useBoardDerived.js'
 import {
   TOTAL_RUNGS, MAX_WORD_LEN, CARRY_REQUIRED, HINT_COST,
   newGameState, loadState, saveState, clearSave,
   selectionMatches, withSelection, clearSelection, placeTileInSlot,
   returnTileFromSlot, reorderRack, shuffleRack, clearWord,
   validateSubmit, applySubmit, applyHint, giveUp,
-  filledSlotCount, lastFilledSlot, currentWord, currentWordLetters,
-  carriedUsedCount, previewScore, tryTypeLetter, popLastSlot,
+  lastFilledSlot, previewScore, tryTypeLetter, popLastSlot,
   bestRung,
 } from '../lib/soloGame.js'
 import { supabase } from '../lib/supabase.js'
@@ -84,7 +86,7 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
       }
       if (e.key === 'Escape') {
         if (state.selection) { e.preventDefault(); setState(prev => clearSelection(prev)); return }
-        if (filledSlotCount(state) > 0) { e.preventDefault(); setState(prev => clearWord(prev)) }
+        if (lastFilledSlot(state) >= 0) { e.preventDefault(); setState(prev => clearWord(prev)) }
         return
       }
       if (/^[a-zA-Z]$/.test(e.key)) {
@@ -182,9 +184,7 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
     setState(newGameState())
   }
 
-  const usedRackIdxs = new Set(state.selected.filter(e => e && e.source === 'rack').map(e => e.idx))
-  const usedCarriedIdxs = new Set(state.selected.filter(e => e && e.source === 'carried').map(e => e.idx))
-  const filled = filledSlotCount(state)
+  const { filled, usedRackIdxs, usedCarriedIdxs } = useBoardDerived(state.selected)
   const preview = filled > 0 ? previewScore(state) : null
   const submitDisabled = state.gameOver || filled < 1
   const lastRung = state.ladder.length > 0 ? state.ladder[state.ladder.length - 1] : null
@@ -240,41 +240,18 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
       )}
 
       <section className="card !p-3 space-y-2 mb-2" aria-label="Current rung">
-        <div
-          className={`flex justify-center gap-1 transition-all ${
+        <BoardSlots
+          selected={state.selected}
+          premiumPos={state.premiumPos}
+          onSlotTap={handleSlotTap}
+          wrapperClassName={`flex justify-center gap-1 transition-all ${
             flash === 'valid'
               ? 'animate-pulse'
               : flash === 'invalid'
               ? 'animate-[shake_0.4s]'
               : ''
           }`}
-        >
-          {Array.from({ length: MAX_WORD_LEN }, (_, slot) => {
-            const entry = state.selected[slot]
-            const isPremium = (slot + 1) === state.premiumPos
-            if (entry) {
-              const isPremiumHit = isPremium && entry.source === 'rack'
-              return (
-                <Tile
-                  key={slot}
-                  letter={entry.letter}
-                  variant="in-word"
-                  premium={isPremiumHit}
-                  carried={entry.source === 'carried'}
-                  onClick={() => handleSlotTap(slot)}
-                />
-              )
-            }
-            return (
-              <EmptySlot
-                key={slot}
-                premium={isPremium}
-                onClick={() => handleSlotTap(slot)}
-                ariaLabel={`Slot ${slot + 1}${isPremium ? ' (2× bonus)' : ''}`}
-              />
-            )
-          })}
-        </div>
+        />
 
         <div className="flex items-center justify-end text-xs">
           <span className={`font-display text-rungles-700 ${preview ? 'opacity-100' : 'opacity-0'}`}>
@@ -282,34 +259,14 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
           </span>
         </div>
 
-        {state.carried.length === 0 ? (
-          <p className="text-xs text-rungles-500 italic">Carried: — (rung 1: no carryover)</p>
-        ) : (
-          /* Width matches the 7-slot play area above (7×40px + 6×4px gap)
-             and is mx-auto centered, so the first carried tile sits
-             directly under the first play-area slot. */
-          <div className="space-y-1 mx-auto" style={{ width: '304px' }}>
-            <p className="text-xs text-rungles-600 dark:text-rungles-300">
-              Carried (need {CARRY_REQUIRED}):
-            </p>
-            <div className="flex gap-1 flex-wrap">
-              {state.carried.map((c, idx) => {
-                const used = usedCarriedIdxs.has(idx)
-                return (
-                  <Tile
-                    key={idx}
-                    letter={c.letter}
-                    variant="in-word"
-                    carried
-                    ghost={used}
-                    selected={selectionMatches(state, 'carried', idx)}
-                    onClick={() => !used && handleSourceTap('carried', idx)}
-                  />
-                )
-              })}
-            </div>
-          </div>
-        )}
+        <CarriedTiles
+          letters={state.carried.map(c => c.letter)}
+          usedIdxs={usedCarriedIdxs}
+          isSelected={(idx) => selectionMatches(state, 'carried', idx)}
+          onTileTap={(idx) => handleSourceTap('carried', idx)}
+          emptyMessage="Carried: — (rung 1: no carryover)"
+          label={`Carried (need ${CARRY_REQUIRED}):`}
+        />
       </section>
 
       <section className="card !p-3 mb-2" aria-label="Your tile rack">
