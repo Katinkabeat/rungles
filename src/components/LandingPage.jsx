@@ -46,7 +46,7 @@ export default function LandingPage({ profile, myUserId, isAdmin, lobbyTab, onPl
 
       <section className="card">
         <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-1">
-          🪜 Multiplayer
+          🪜 Two-Player Match
         </h2>
         <p className="text-sm text-rungles-700 dark:text-rungles-300 mb-3">
           Create a game or jump into an open one.
