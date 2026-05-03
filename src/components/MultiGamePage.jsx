@@ -11,8 +11,32 @@ import {
   subscribeMatch, subscribeGameStatus, unsubscribe,
 } from '../lib/matchService.js'
 import { scoreRung } from '../lib/scoring.js'
+import { identityOrder, swapInOrder, shuffleOrder, normalizeOrder } from '../lib/rackOrder.js'
 import RunglesHeader from './RunglesHeader.jsx'
 import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
+
+const RACK_ORDER_STORAGE_PREFIX = 'rungles:multi:rackOrder:'
+
+function rackOrderKey(gameId) { return RACK_ORDER_STORAGE_PREFIX + gameId }
+
+function loadSavedRackOrder(gameId, rackLength) {
+  try {
+    const raw = localStorage.getItem(rackOrderKey(gameId))
+    if (!raw) return null
+    const arr = JSON.parse(raw)
+    return normalizeOrder(arr, rackLength)
+  } catch { return null }
+}
+
+function saveSavedRackOrder(gameId, order) {
+  try {
+    if (!Array.isArray(order) || order.length === 0) {
+      localStorage.removeItem(rackOrderKey(gameId))
+    } else {
+      localStorage.setItem(rackOrderKey(gameId), JSON.stringify(order))
+    }
+  } catch { /* quota / disabled — silent */ }
+}
 
 const MAX_WORD_LEN = 7
 const MIN_WORD_LEN = 4
@@ -57,7 +81,9 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
         setRack(data.rack)
         setRungs(data.rungs)
         setPremiumPos(data.premiumPos)
-        setRackOrder(null)
+        // Restore the user's saved visual rack order if it's still valid
+        // (matches current rack length). Survives reload / app close.
+        setRackOrder(loadSavedRackOrder(gameId, data.rack.length))
         wasComplete.current = data.game.status === 'complete'
         // Auto-open the end-game modal on cold load if the game's already
         // finished and this user hasn't dismissed the result yet (e.g. they
@@ -99,6 +125,14 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
     return () => unsubscribe(ch)
   }, [game?.status, gameId, myUserId])
 
+  // Persist the user's visual rack order so closing the app and coming back
+  // doesn't reset their tile arrangement. Runs on every change; null clears
+  // the entry. Only saves once we have a rack to be ordered against.
+  useEffect(() => {
+    if (rack.length === 0) return
+    saveSavedRackOrder(gameId, rackOrder)
+  }, [gameId, rackOrder, rack.length])
+
   // Active-match subscription.
   useEffect(() => {
     if (!game || game.status !== 'active') return
@@ -118,6 +152,8 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
         try {
           const r = await refreshRack(gameId, myUserId)
           setRack(r)
+          // Rack composition changed — discard saved visual order, it no
+          // longer maps to a meaningful tile arrangement.
           setRackOrder(null)
         } catch {}
         if (newGame.status === 'complete' && !wasC) {
@@ -186,26 +222,21 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   }
 
   function handleSourceTap(source, idx) {
-    if (!playable) return
-    if (!selection) { setSelection({ source, idx }); return }
+    // Rack-only interactions (selecting a rack tile, swapping two rack tiles)
+    // are always allowed — purely visual prep, no server effect. Carried tiles
+    // and slot placement still require it to be your turn.
+    if (!selection) {
+      if (source === 'rack' || playable) setSelection({ source, idx })
+      return
+    }
     if (selectionMatches(source, idx)) { setSelection(null); return }
     if (selection.source === 'rack' && source === 'rack') {
-      reorderRackVisual(selection.idx, idx)
+      setRackOrder(swapInOrder(order, selection.idx, idx))
       setSelection(null)
       return
     }
+    if (!playable) return
     setSelection({ source, idx })
-  }
-
-  function reorderRackVisual(fromServerIdx, toServerIdx) {
-    const cur = order.slice()
-    const from = cur.indexOf(fromServerIdx)
-    const to = cur.indexOf(toServerIdx)
-    if (from === -1 || to === -1 || from === to) return
-    const [moved] = cur.splice(from, 1)
-    const insertAt = from < to ? to - 1 : to
-    cur.splice(insertAt, 0, moved)
-    setRackOrder(cur)
   }
 
   function handleSlotTap(slot) {
@@ -248,17 +279,8 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   }
 
   function handleShuffle() {
-    if (!playable) return
-    const cur = order.slice()
-    const selectedSet = new Set([...usedRackIdxs])
-    const freePositions = cur.map((_, p) => p).filter(p => !selectedSet.has(cur[p]))
-    const freeValues = freePositions.map(p => cur[p])
-    for (let i = freeValues.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[freeValues[i], freeValues[j]] = [freeValues[j], freeValues[i]]
-    }
-    freePositions.forEach((p, k) => { cur[p] = freeValues[k] })
-    setRackOrder(cur)
+    // Shuffling the rack is purely visual — allow even when waiting for opponent.
+    setRackOrder(shuffleOrder(order, [...usedRackIdxs]))
   }
 
   async function doSubmit() {
@@ -520,7 +542,6 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
                   ghost={inWord}
                   selected={selectionMatches('rack', serverIdx)}
                   onClick={() => !inWord && handleSourceTap('rack', serverIdx)}
-                  disabled={!playable}
                 />
               )
             })}
@@ -536,7 +557,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
           <div className="grid grid-cols-4 gap-2">
             <ActionButton emoji="✅" label="Submit" onClick={doSubmit} variant="primary" disabled={!playable || filled === 0} />
             <ActionButton emoji="↩️" label="Clear" onClick={clearWord} variant="secondary" disabled={!playable || (filled === 0 && !selection)} />
-            <ActionButton emoji="🔀" label="Shuffle" onClick={handleShuffle} variant="secondary" disabled={!playable} />
+            <ActionButton emoji="🔀" label="Shuffle" onClick={handleShuffle} variant="secondary" />
             <ActionButton emoji="⏩" label="Skip" onClick={doSkip} variant="secondary" disabled={!playable} />
           </div>
           <ActionButton

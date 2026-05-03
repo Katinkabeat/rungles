@@ -314,15 +314,16 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
 
       <section className="card !p-3 mb-2" aria-label="Your tile rack">
         <div className="flex items-center justify-center gap-1 flex-nowrap">
-          {state.rack.map((letter, idx) => {
-            const inWord = usedRackIdxs.has(idx)
+          {state.rackOrder.map(serverIdx => {
+            const letter = state.rack[serverIdx]
+            const inWord = usedRackIdxs.has(serverIdx)
             return (
               <Tile
-                key={idx}
+                key={serverIdx}
                 letter={letter}
                 ghost={inWord}
-                selected={selectionMatches(state, 'rack', idx)}
-                onClick={() => !inWord && handleSourceTap('rack', idx)}
+                selected={selectionMatches(state, 'rack', serverIdx)}
+                onClick={() => !inWord && handleSourceTap('rack', serverIdx)}
               />
             )
           })}

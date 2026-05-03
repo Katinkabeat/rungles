@@ -5,6 +5,7 @@
 import { dealOpeningHand, refillRack, LETTER_VALUES, RACK_SIZE } from './tiles.js'
 import { isValidWord, canFormAnyWord, findHintWord } from './dictionary.js'
 import { scoreRung } from './scoring.js'
+import { identityOrder, swapInOrder, shuffleOrder, normalizeOrder } from './rackOrder.js'
 
 export const TOTAL_RUNGS = 7
 export const MIN_WORD_LEN = 4
@@ -24,6 +25,7 @@ export function initialState() {
   return {
     bag: [],
     rack: [],
+    rackOrder: [],      // visual permutation of rack server-indices
     rungNumber: 1,
     totalScore: 0,
     ladder: [],         // [{ word, rungScore, premiumPos, sources: ['rack'|'carried',…] }]
@@ -41,6 +43,7 @@ export function newGameState() {
   const s = initialState()
   s.bag = hand.bag
   s.rack = hand.rack
+  s.rackOrder = identityOrder(s.rack.length)
   s.premiumPos = pickPremiumPos()
   return s
 }
@@ -93,37 +96,19 @@ export function returnTileFromSlot(s, slot) {
   return next
 }
 
-export function reorderRack(s, fromIdx, toIdx) {
-  if (fromIdx === toIdx) return clearSelection(s)
-  const newRack = [...s.rack]
-  const [letter] = newRack.splice(fromIdx, 1)
-  const insertAt = fromIdx < toIdx ? toIdx - 1 : toIdx
-  newRack.splice(insertAt, 0, letter)
-
-  // Old idx -> new idx so any in-word rack references remain valid.
-  const oldInNew = []
-  for (let i = 0; i < s.rack.length; i++) if (i !== fromIdx) oldInNew.push(i)
-  oldInNew.splice(insertAt, 0, fromIdx)
-  const remap = {}
-  oldInNew.forEach((oldIdx, newIdx) => { remap[oldIdx] = newIdx })
-
-  const newSelected = s.selected.map(e =>
-    (e && e.source === 'rack') ? { ...e, idx: remap[e.idx] } : e
-  )
-  return { ...s, rack: newRack, selected: newSelected, selection: null }
+// Swap two rack server-indices in the visual order. Pure: rack stays in
+// deal/refill order, only rackOrder changes — so selected[].idx references
+// (which are server-idx) remain valid without any remap.
+export function reorderRack(s, fromServerIdx, toServerIdx) {
+  if (fromServerIdx === toServerIdx) return clearSelection(s)
+  const nextOrder = swapInOrder(s.rackOrder, fromServerIdx, toServerIdx)
+  return { ...s, rackOrder: nextOrder, selection: null }
 }
 
 export function shuffleRack(s) {
-  const selectedIdxs = new Set(s.selected.filter(e => e && e.source === 'rack').map(e => e.idx))
-  const freeIdxs = s.rack.map((_, i) => i).filter(i => !selectedIdxs.has(i))
-  const freeLetters = freeIdxs.map(i => s.rack[i])
-  for (let i = freeLetters.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[freeLetters[i], freeLetters[j]] = [freeLetters[j], freeLetters[i]]
-  }
-  const newRack = s.rack.slice()
-  freeIdxs.forEach((idx, k) => { newRack[idx] = freeLetters[k] })
-  return { ...s, rack: newRack }
+  const lockedIdxs = s.selected.filter(e => e && e.source === 'rack').map(e => e.idx)
+  const nextOrder = shuffleOrder(s.rackOrder, lockedIdxs)
+  return { ...s, rackOrder: nextOrder }
 }
 
 export function clearWord(s) {
@@ -199,6 +184,9 @@ export function applySubmit(s) {
     ...s,
     bag: newBag,
     rack: newRack,
+    // Rack composition changed — reset visual order to identity. The user's
+    // previous arrangement is no longer meaningful for the new tile set.
+    rackOrder: identityOrder(newRack.length),
     rungNumber: nextRungNumber,
     totalScore: s.totalScore + rungScore,
     ladder: newLadder,
@@ -248,7 +236,10 @@ export function loadState() {
     if (!raw) return null
     const saved = JSON.parse(raw)
     if (!saved || saved.gameOver) return null
-    return { ...saved, selection: null }
+    // Backward compat: older saves predate rackOrder. Default to identity if
+    // missing or invalid (wrong length, bad values).
+    const rackOrder = normalizeOrder(saved.rackOrder, (saved.rack ?? []).length)
+    return { ...saved, rackOrder, selection: null }
   } catch { return null }
 }
 
