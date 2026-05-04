@@ -117,6 +117,7 @@ function AppInner() {
         >
           <LandingPage
             profile={profile}
+            user={session?.user}
             myUserId={session?.user?.id}
             isAdmin={!!adminRecord}
             lobbyTab={lobbyTab}

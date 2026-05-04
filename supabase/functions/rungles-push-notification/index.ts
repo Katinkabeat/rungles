@@ -72,6 +72,30 @@ serve(async (req: Request) => {
     const payload = await req.json()
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+    // ── game_invited (from rg_games AFTER INSERT trigger) ───────
+    if (payload.type === 'game_invited') {
+      const { record } = payload
+      if (!record?.id || !record.created_by || !record.invited_user_id) {
+        return new Response(JSON.stringify({ skipped: 'missing fields' }), { status: 200, headers: corsHeaders })
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', record.created_by)
+        .maybeSingle()
+      const inviterName = profile?.username ?? 'Someone'
+
+      const result = await sendPushToUser(supabase, record.invited_user_id, {
+        title: 'Rungles — match invite',
+        body: `${inviterName} invited you to a Rungles match. Tap to play! 🪜`,
+        tag: `rungles-invite-${record.id}`,
+        url: `/rungles/?game=${record.id}`,
+        icon: '/rungles/favicon.svg',
+      })
+      return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
+    }
+
     // ── nudge (from client) ─────────────────────────────────────
     // Client has already updated rg_games.last_nudged_at via the rg_nudge
     // RPC (which enforces cooldown + caller-in-game). This branch just

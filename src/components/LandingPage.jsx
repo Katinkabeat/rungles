@@ -1,14 +1,14 @@
 import React, { lazy, Suspense, useState } from 'react'
-import toast from 'react-hot-toast'
 import LobbyList from './LobbyList.jsx'
 import CompletedGamesSection from './CompletedGamesSection.jsx'
-import { createGame } from '../lib/lobbyService.js'
+import CreateGameSheet from './CreateGameSheet.jsx'
 
 // Lazy-loaded so non-admins never download the admin panel code.
 const AdminPanel = lazy(() => import('./AdminPanel.jsx'))
 
-export default function LandingPage({ profile, myUserId, isAdmin, lobbyTab, onPlaySolo, onEnterGame }) {
-  const [creating, setCreating] = useState(false)
+export default function LandingPage({ profile, user, myUserId, isAdmin, lobbyTab, onPlaySolo, onEnterGame }) {
+  const [showSheet, setShowSheet] = useState(false)
+  const [reloadTick, setReloadTick] = useState(0)
 
   if (lobbyTab === 'admin' && isAdmin) {
     return (
@@ -16,18 +16,6 @@ export default function LandingPage({ profile, myUserId, isAdmin, lobbyTab, onPl
         <AdminPanel />
       </Suspense>
     )
-  }
-
-  async function handleCreate() {
-    setCreating(true)
-    try {
-      await createGame({ totalRungs: 10 })
-      toast.success('Game created — waiting for an opponent')
-    } catch (e) {
-      toast.error(`Couldn't create game: ${e.message ?? e}`)
-    } finally {
-      setCreating(false)
-    }
   }
 
   return (
@@ -54,12 +42,12 @@ export default function LandingPage({ profile, myUserId, isAdmin, lobbyTab, onPl
         <button
           type="button"
           className="btn-primary mb-4"
-          onClick={handleCreate}
-          disabled={creating}
+          onClick={() => setShowSheet(true)}
         >
-          {creating ? '⏳ Creating…' : '✨ Create game'}
+          ✨ Create game
         </button>
         <LobbyList
+          key={reloadTick}
           myUserId={myUserId}
           myUsername={profile?.username}
           onEnterGame={onEnterGame}
@@ -70,6 +58,17 @@ export default function LandingPage({ profile, myUserId, isAdmin, lobbyTab, onPl
         myUserId={myUserId}
         onEnterGame={onEnterGame}
       />
+
+      {showSheet && (
+        <CreateGameSheet
+          user={user ?? { id: myUserId }}
+          onClose={() => setShowSheet(false)}
+          onCreated={() => {
+            setShowSheet(false)
+            setReloadTick(t => t + 1)
+          }}
+        />
+      )}
     </>
   )
 }

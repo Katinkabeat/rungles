@@ -9,21 +9,46 @@ export default function LobbyRow({
   onNudge,
   onJoin,
   onResume,
+  onCancel,
+  cancelDisabled,
+  isInviteToMe,
 }) {
   const players = (game.rg_players ?? []).slice().sort((a, b) => a.player_idx - b.player_idx)
   const isMine = players.some(p => p.user_id === myUserId)
   const isActive = game.status === 'active'
+  const isInviteByMe =
+    game.status === 'waiting' &&
+    game.invited_user_id != null &&
+    game.created_by === myUserId
 
   const sinceIso = game.turn_started_at ?? game.created_at
-  const subText = isActive
-    ? `${game.total_rungs} rungs · ${timeAgo(sinceIso)}`
-    : `${game.total_rungs} rungs · ⏳ Waiting for players`
+  let subText
+  if (isInviteToMe) {
+    const inviter = usernameById[game.created_by] ?? '?'
+    subText = `📨 ${inviter} invited you · ${game.total_rungs} rungs`
+  } else if (isInviteByMe) {
+    const invitee = usernameById[game.invited_user_id] ?? 'friend'
+    subText = `📨 Invited ${invitee} · ${game.total_rungs} rungs`
+  } else if (isActive) {
+    subText = `${game.total_rungs} rungs · ${timeAgo(sinceIso)}`
+  } else {
+    subText = `${game.total_rungs} rungs · ⏳ Waiting for players`
+  }
 
-  const totalChips = players.length // chip count (no count-pill counted)
-  const wrapAfter = totalChips === 4 ? 2 : null // sq-conventions: 4-player → 2-per-line
+  // For invite-to-me rows the players array only has the creator (1
+  // chip), so we synthesize a "you" placeholder chip on the right.
+  const totalChips = players.length + (isInviteToMe ? 1 : 0)
+  const wrapAfter = totalChips === 4 ? 2 : null
+
+  const actionLabel = isInviteToMe ? 'Accept' : (isMine ? 'Resume' : 'Join')
+  const actionHandler = () => isInviteToMe || !isMine ? onJoin(game.id) : onResume(game.id)
 
   return (
-    <div className="flex items-center justify-between gap-3 bg-white dark:bg-[#1f1240] rounded-xl border border-rungles-100 dark:border-[#2d1b55] px-3 py-2.5">
+    <div className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${
+      isInviteToMe
+        ? 'bg-amber-50 dark:bg-[#2a1f10] border-amber-200 dark:border-amber-700'
+        : 'bg-white dark:bg-[#1f1240] border-rungles-100 dark:border-[#2d1b55]'
+    }`}>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           {players.map((p, i) => {
@@ -47,7 +72,6 @@ export default function LobbyRow({
                 <span className="lobby-chip-name">{usernameById[p.user_id] ?? '?'}</span>
               </span>
             )
-            // Force a row break after chip 2 for 4-player rows so chips wrap 2/line.
             if (wrapAfter && i === wrapAfter - 1) {
               return (
                 <Fragment key={p.user_id + '-wrap'}>
@@ -58,17 +82,36 @@ export default function LobbyRow({
             }
             return chip
           })}
-          <span className="lobby-chip-count">({players.length}/{game.max_players})</span>
+          {isInviteToMe && (
+            <span className="lobby-chip lobby-chip-current">
+              <span className="lobby-chip-name">You</span>
+            </span>
+          )}
+          <span className="lobby-chip-count">({players.length + (isInviteToMe ? 1 : 0)}/{game.max_players})</span>
         </div>
         <p className="text-xs text-rungles-500 dark:text-rungles-400 mt-1">{subText}</p>
       </div>
-      <button
-        type="button"
-        className="btn-primary text-sm shrink-0"
-        onClick={() => isMine ? onResume(game.id) : onJoin(game.id)}
-      >
-        {isMine ? 'Resume' : 'Join'}
-      </button>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={cancelDisabled}
+            className="w-7 h-7 grid place-items-center rounded-full text-rungles-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 transition-colors"
+            aria-label="Cancel game"
+            title="Cancel game"
+          >
+            ✕
+          </button>
+        )}
+        <button
+          type="button"
+          className={`btn-primary text-sm shrink-0 ${isInviteToMe ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+          onClick={actionHandler}
+        >
+          {actionLabel}
+        </button>
+      </div>
     </div>
   )
 }

@@ -1,19 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import LobbyRow from './LobbyRow.jsx'
 import {
-  fetchLobby, subscribeLobby, joinGame, sendNudge, canNudgeGame,
+  fetchLobby, subscribeLobby, joinGame, sendNudge, canNudgeGame, cancelGame,
 } from '../lib/lobbyService.js'
 import { supabase } from '../lib/supabase.js'
 
 // Active multiplayer games (waiting + active-where-I'm-a-player). Open
 // joinable games come first so users see "things to join" before their
 // own active games. Finished games live in CompletedGamesSection.
+//
+// Invited games are split out:
+//   - "Invited to you" sits at the top (most prominent)
+//   - "Invited by you" rows render with a 📨 subtext + ✕ cancel button
 export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
   const [games, setGames] = useState([])
   const [usernameById, setUsernameById] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [cancellingId, setCancellingId] = useState(null)
   const recentlyNudgedRef = useRef(new Set())
   const [, forceTick] = useState(0)
 
@@ -52,6 +57,21 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
     onEnterGame(gameId)
   }
 
+  async function handleCancel(gameId) {
+    if (cancellingId) return
+    if (!confirm('Cancel this game?')) return
+    setCancellingId(gameId)
+    try {
+      await cancelGame(gameId)
+      toast.success('Game cancelled.')
+    } catch (e) {
+      toast.error(`Couldn't cancel: ${e.message ?? e}`)
+    } finally {
+      setCancellingId(null)
+      refresh()
+    }
+  }
+
   async function handleNudge(gameId) {
     if (recentlyNudgedRef.current.has(gameId)) return
     recentlyNudgedRef.current.add(gameId)
@@ -66,6 +86,20 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
     }
     refresh()
   }
+
+  // Bucket games so invitations sort to the top.
+  const buckets = useMemo(() => {
+    const invitedToYou = []
+    const others = []
+    for (const g of games) {
+      if (g.status === 'waiting' && g.invited_user_id === myUserId && g.created_by !== myUserId) {
+        invitedToYou.push(g)
+      } else {
+        others.push(g)
+      }
+    }
+    return { invitedToYou, others }
+  }, [games, myUserId])
 
   if (loading) {
     return <p className="text-sm text-rungles-500 dark:text-rungles-400">Loading lobby…</p>
@@ -84,7 +118,20 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
 
   return (
     <div className="space-y-2">
-      {games.map(g => (
+      {buckets.invitedToYou.map(g => (
+        <LobbyRow
+          key={g.id}
+          game={g}
+          myUserId={myUserId}
+          usernameById={usernameById}
+          canNudge={false}
+          onNudge={handleNudge}
+          onJoin={handleJoin}
+          onResume={handleResume}
+          isInviteToMe
+        />
+      ))}
+      {buckets.others.map(g => (
         <LobbyRow
           key={g.id}
           game={g}
@@ -94,6 +141,12 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
           onNudge={handleNudge}
           onJoin={handleJoin}
           onResume={handleResume}
+          onCancel={
+            g.status === 'waiting' && g.created_by === myUserId
+              ? () => handleCancel(g.id)
+              : undefined
+          }
+          cancelDisabled={cancellingId === g.id}
         />
       ))}
     </div>

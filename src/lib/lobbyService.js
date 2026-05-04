@@ -3,13 +3,20 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js'
 const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000
 
 // Returns { games, usernameById } where games are the visible rows
-// (waiting + active-where-I'm-a-player).
+// (waiting + active-where-I'm-a-player). Lazy-sweeps any expired
+// waiting games before reading. Includes invited_user_id so callers
+// can route invited matches into the right lobby section.
 export async function fetchLobby(myUserId) {
+  // Cheap server-side sweep — only updates rows that are actually
+  // past their expires_at deadline. Non-fatal if it fails.
+  try { await supabase.rpc('rg_expire_stale_games') } catch { /* ignore */ }
+
   const { data: games, error } = await supabase
     .from('rg_games')
     .select(`
       id, status, created_at, total_rungs, max_players,
       current_player_idx, turn_started_at, last_nudged_at,
+      invited_user_id, expires_at, cancelled_at, created_by,
       rg_players ( user_id, player_idx )
     `)
     .in('status', ['waiting', 'active'])
@@ -17,18 +24,31 @@ export async function fetchLobby(myUserId) {
     .limit(50)
   if (error) throw error
 
-  const visible = (games ?? []).filter(g =>
-    g.status === 'waiting' ||
-    (g.status === 'active' && (g.rg_players ?? []).some(p => p.user_id === myUserId))
-  )
+  // Hide invited games from non-participants. RLS already enforces
+  // this server-side; the filter here is defense-in-depth.
+  const visible = (games ?? []).filter(g => {
+    const iAmParticipant =
+      g.created_by === myUserId ||
+      g.invited_user_id === myUserId ||
+      (g.rg_players ?? []).some(p => p.user_id === myUserId)
+    if (g.status === 'waiting') {
+      return g.invited_user_id == null || iAmParticipant
+    }
+    return g.status === 'active' && iAmParticipant
+  })
 
-  const userIds = [...new Set(visible.flatMap(g => (g.rg_players ?? []).map(p => p.user_id)))]
+  const userIds = new Set()
+  for (const g of visible) {
+    for (const p of (g.rg_players ?? [])) userIds.add(p.user_id)
+    if (g.invited_user_id) userIds.add(g.invited_user_id)
+    if (g.created_by) userIds.add(g.created_by)
+  }
   let usernameById = {}
-  if (userIds.length > 0) {
+  if (userIds.size > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, username')
-      .in('id', userIds)
+      .in('id', [...userIds])
     usernameById = Object.fromEntries((profiles ?? []).map(p => [p.id, p.username]))
   }
 
@@ -132,14 +152,33 @@ export function subscribeFinishes(onFinish) {
     .subscribe()
 }
 
-export async function createGame({ totalRungs = 10 } = {}) {
-  const { data, error } = await supabase.rpc('rg_create_game', { p_total_rungs: totalRungs })
+/**
+ * Create a new game. Pass `invitedUserId` to make it a private friend
+ * invite (only that user can see/join, auto-cancels in 3 days). Omit
+ * for an open match (anyone joins, auto-cancels in 7 days).
+ */
+export async function createGame({ totalRungs = 10, invitedUserId = null } = {}) {
+  const { data, error } = await supabase.rpc('rg_create_game', {
+    p_total_rungs: totalRungs,
+    p_invited_user_id: invitedUserId,
+  })
   if (error) throw error
   return data // game id
 }
 
 export async function joinGame(gameId) {
   const { error } = await supabase.rpc('rg_join_game', { p_game_id: gameId })
+  if (error) throw error
+}
+
+/**
+ * Cancel a game the current user created. Server enforces:
+ *   - caller is the creator
+ *   - status is 'waiting' or 'active'
+ *   - no rungs have been played
+ */
+export async function cancelGame(gameId) {
+  const { error } = await supabase.rpc('rg_cancel_game', { p_game_id: gameId })
   if (error) throw error
 }
 
