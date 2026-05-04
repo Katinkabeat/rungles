@@ -524,7 +524,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
 
       {!isComplete && (
         <section className="card !p-3 mb-2" aria-label="Your tile rack">
-          <div className="flex items-center justify-center gap-1 flex-nowrap">
+          <div className="grid grid-cols-7 gap-1 max-w-[304px] mx-auto">
             {order.map(serverIdx => {
               const letter = rack[serverIdx]
               const inWord = usedRackIdxs.has(serverIdx)
