@@ -74,6 +74,7 @@ DECLARE
   v_game_id uuid;
   v_bag text[];
   v_rack text[];
+  v_seed text;
   v_user_id uuid := auth.uid();
 BEGIN
   IF v_user_id IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
@@ -85,8 +86,15 @@ BEGIN
   v_rack := v_bag[1:7];
   v_bag := v_bag[8:array_length(v_bag, 1)];
 
-  INSERT INTO rg_games (created_by, total_rungs, max_players, status, invited_user_id)
-  VALUES (v_user_id, p_total_rungs, 2, 'waiting', p_invited_user_id)
+  SELECT word INTO v_seed
+    FROM rg_words
+    WHERE length(word) BETWEEN 4 AND 7
+    ORDER BY random()
+    LIMIT 1;
+  IF v_seed IS NULL THEN RAISE EXCEPTION 'no seed word available'; END IF;
+
+  INSERT INTO rg_games (created_by, total_rungs, max_players, status, seed_word, invited_user_id)
+  VALUES (v_user_id, p_total_rungs, 2, 'waiting', v_seed, p_invited_user_id)
   RETURNING id INTO v_game_id;
 
   INSERT INTO rg_game_secrets (game_id, tile_bag) VALUES (v_game_id, v_bag);
