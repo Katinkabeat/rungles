@@ -12,6 +12,7 @@ import {
   submitRung, skipTurn, giveUpMatch,
   subscribeMatch, subscribeGameStatus, unsubscribe,
 } from '../lib/matchService.js'
+import { joinGame as joinGameRpc } from '../lib/lobbyService.js'
 import { scoreRung } from '../lib/scoring.js'
 import { identityOrder, swapInOrder, shuffleOrder, normalizeOrder } from '../lib/rackOrder.js'
 import { useBoardDerived } from '../hooks/useBoardDerived.js'
@@ -71,6 +72,8 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   const [giveUpArmed, setGiveUpArmed] = useState(false)
   const giveUpTimer = useRef(null)
   const wasComplete = useRef(false) // track status transitions
+  const [autoJoining, setAutoJoining] = useState(false)
+  const autoJoinAttemptedRef = useRef(false)
 
   // Initial load.
   useEffect(() => {
@@ -104,6 +107,43 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
       })
     return () => { alive = false }
   }, [gameId, myUserId])
+
+  // Auto-accept invite when arriving from a notification deep-link.
+  // The notification URL goes straight to /?game=<id>, so an invitee who
+  // hasn't formally joined yet (no rg_players row) lands on a game they
+  // can't play. Detect that state and join on their behalf.
+  useEffect(() => {
+    if (!game || autoJoinAttemptedRef.current || autoJoining) return
+    const iAmPlayer = (players ?? []).some(p => p.userId === myUserId)
+    if (iAmPlayer) return
+
+    if (game.invited_user_id !== myUserId || game.status !== 'waiting') {
+      autoJoinAttemptedRef.current = true
+      toast.error("You're not in this game.")
+      onLeave?.()
+      return
+    }
+
+    autoJoinAttemptedRef.current = true
+    setAutoJoining(true)
+    ;(async () => {
+      try {
+        await joinGameRpc(gameId)
+        toast.success('🎯 Joined! Good luck!')
+        const data = await loadMatch(gameId, myUserId)
+        setGame(data.game)
+        setPlayers(data.players)
+        setRack(data.rack)
+        setRungs(data.rungs)
+        setPremiumPos(data.premiumPos)
+      } catch (err) {
+        toast.error(err.message ?? "Couldn't join game")
+        onLeave?.()
+      } finally {
+        setAutoJoining(false)
+      }
+    })()
+  }, [game, players, myUserId, autoJoining, gameId, onLeave])
 
   // Waiting-room subscription: jump to active when status flips.
   useEffect(() => {
@@ -344,9 +384,11 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
     </SQBoardShell>
   )
 
-  if (loading) {
+  if (loading || autoJoining) {
     return renderShell(
-      <p className="text-center text-rungles-700 dark:text-rungles-200">Loading match…</p>
+      <p className="text-center text-rungles-700 dark:text-rungles-200">
+        {autoJoining ? 'Joining match…' : 'Loading match…'}
+      </p>
     )
   }
   if (loadError) {
