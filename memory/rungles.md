@@ -1,0 +1,177 @@
+# Rungles — Project Details
+
+Project-local memory: detailed architecture notes for Rungles. Loaded only when Claude is working in this folder. The high-level summary lives in the user's auto-memory at `~/.claude/projects/.../memory/project_sq_rungles.md`.
+
+## Overview
+
+Rungles is a word game (Scrabble tile management + Wordle daily/shareable feel). Vanilla HTML/CSS/JS frontend, Supabase backend. Spec at `rungles-spec.md`.
+
+- **Repo:** `github.com/Katinkabeat/rungles`
+- **Live:** `katinkabeat.github.io/rungles/`
+- **Supabase project ref:** `yyhewndblruwxsrqzart` (shared with Wordy and SQ)
+
+## Supabase sharing decision
+
+Rungles **shares Wordy's Supabase project** (ref `yyhewndblruwxsrqzart`) instead of having its own. The reason: testers don't need to sign up for a second account — they reuse their existing Wordy `profiles` row. Will split into a separate Supabase project before going public.
+
+**How the sharing works without collisions:**
+- All Rungles tables and functions use the `rg_*` prefix (`rg_games`, `rg_players`, `rg_racks`, `rg_rungs`, `rg_game_secrets`, `rg_create_game`, etc.) to avoid colliding with Wordy's `games`, `game_players`, `game_moves`, `player_matchups`, `push_subscriptions`.
+- `profiles` and `auth.users` are reused as-is — that's the whole point of sharing.
+- RLS policies on Rungles tables reference `auth.uid()` the same way Wordy does, scoped only to Rungles tables.
+- When the Supabase MCP is pointed at this project ref and you see Wordy tables, that's expected — not a misconfiguration. Do NOT warn the user about wrong project.
+- Future split path: spin up new Supabase project, copy `rg_*` tables and functions, repoint frontend. Clean because of the prefix.
+- Migration plan lives at `rungles/supabase/migration-001-initial.sql` — idempotent (drops `rg_*` first), uses SECURITY DEFINER RPCs for all mutations so the tile bag stays hidden, RLS scopes racks to the owning user.
+
+## End-of-game discoverability (2026-04-28)
+
+Wordy-parity end-of-game flow added in migration 007:
+
+- **`rg_players.dismissed_at timestamptz`** — per-user ack of a finished game's result. NULL = banner still showing for that user. Mutated only via `rg_dismiss_result(p_game_id)` RPC (SECURITY DEFINER), matching the project convention that all writes go through RPCs.
+- **`rg_games.forfeit_user_id uuid`** — records WHICH player gave up. `rg_give_up` patched in 007 to populate it. Lets the lobby/end-game UI distinguish forfeit wins from played-out wins ("🏳️ X gave up — Y wins!" vs "🏆 X wins!").
+- **Lobby unseen-results banner** (`LobbyResultsBanner.jsx`) — persistent stack above the games list showing each finished game the user hasn't dismissed. Click row → navigate to game (auto-opens `MultiEndGameModal`). ✕ button → explicit dismiss only; **never auto-dismisses on view** (per Rae: "some users may want to go back and look"). Server `rg_dismiss_result` + per-user localStorage cache `rungles_seen_results_${userId}`.
+- **Finish toast** — lobby subscribes to `rg_games` UPDATE events globally. When a game I'm a player in flips to `complete`, a 15-second toast appears: "🏆 Game over · View final board →". Refreshes the banner list ~1s later.
+- **Cold-load auto-open** — `MultiGamePage` initial-load effect checks `me.dismissedAt == null` on a `complete` game and auto-opens `MultiEndGameModal`. So clicking the lobby banner takes the user straight to the rung-by-rung review.
+- The active-games lobby query stays filtered to `['waiting', 'active']` — finished games surface only via the banner, not in the main list (matches Wordy split).
+
+Files touched: `supabase/migration-007-end-game-discoverability.sql` (new), `src/lib/lobbyService.js`, `src/lib/matchService.js`, `src/components/LobbyList.jsx`, `src/components/LobbyResultsBanner.jsx` (new), `src/components/MultiGamePage.jsx`, `src/components/MultiEndGameModal.jsx`, `public/sw.js` (cache bumped to v14).
+
+### Follow-ups in same session (commits d002496, 7fe21c9)
+
+The banner stack was relocated and re-skinned:
+
+- **`🏁 Completed Games` section** — banners moved out of the top of the lobby into their own section card below `🪜 Multiplayer`. Section header is always visible; empty section when no banners (no "no completed games yet" empty state). Self-contained `src/components/CompletedGamesSection.jsx` owns the unseen-results state, the `subscribeFinishes` toast subscription, and the dismissal handler — `LobbyList.jsx` is back to just the active multiplayer list.
+- **Tightened banner copy** — score line is `You X · Opponent Y` (dropped the redundant "Final:" prefix since the section header already says "Completed Games"). The long underlined "View final board →" link was replaced with a compact right-justified "View Game" text button just left of ✕. Click-to-view target is now the button, not the whole row.
+
+Cache bumped through v14 → v15 → v16 across these commits.
+
+## Auth (Phase 2, 2026-04-25)
+
+Rungles no longer hosts its own login form. `js/multiplayer.js`'s boot handler calls `supabase.auth.getSession()` — if there's no session, it redirects to `/games/?return=/rungles/...` and the SQ hub at `katinkabeat.github.io/games/` handles all auth UI. The `shouldRedirectToHub()` hostname guard was removed in Phase 2 along with the in-app auth-gate HTML, the Turnstile script, `handleSignIn`, and `mountTurnstile` — see commit `7a285bd` for the full diff.
+
+Direct URLs still resolve for logged-in users (notification deep links, bookmarks). For local development, all three apps run together via the unified-origin setup (`npm run dev:all` from `rae-side-quest/`) on `localhost:8080` so sessions share via localStorage exactly like production.
+
+## Session: April 29, 2026
+
+### Theme-flash bug — fixed (commit 6a4ebaf)
+
+Live-deploy spot check caught it: Rungles' `index.html` was missing the synchronous pre-React script that Wordy and Snibble both have:
+
+```html
+<script>if(localStorage.getItem('rungles-theme')==='dark')document.documentElement.classList.add('dark')</script>
+```
+
+Effect: dark-mode users saw a flash of light theme on every page load before React mounted. Fix is one line inserted between the font preloads and `</head>`. Verified locally — `<html>` gets the `dark` class on first paint when localStorage is dark, no class when light.
+
+LocalStorage key is `rungles-theme` (defined in `src/contexts/ThemeContext.jsx:7`).
+
+### CSS extraction sweep — clean
+
+Diffed `rungles/src/index.css` against `sq-ui/globals.css` looking for missed shared rules (similar to the `bg-wordy-300`/`board-grid` bug from the Wordy extraction). Initial pass flagged 5 candidates — all turned out to be false alarms after grepping Wordy/Snibble for usages: `tile-empty*`, `lobby-chip*`, `ladder-letter*`, `action-bar-sticky` are Rungles-only. The `.dark .text-rungles-*` overrides also looked redundant but are actually load-bearing — Tailwind generates `bg-rungles-*` and `bg-wordy-*` as separate class names even though the palettes are identical, so the rungles-named overrides in this file are needed for dark mode to apply to elements that use rungles-named classes.
+
+No CSS changes needed.
+
+## Session: April 30, 2026
+
+### iOS Safari "Load failed" on first play submission — fixed (commit 080f718)
+
+Onyi (iPhone) reported a "TypeError: Load failed" on her first attempt to submit a play; subsequent attempts worked. Desktop users never saw it.
+
+Root cause was an auth-boot race in `src/App.jsx`. The old flow `await supabase.auth.getSession()` and immediately flipped `boot='ready'`. On iOS Safari, `getSession()` can resolve from cached storage before the JWT is actually wired into the client's outbound-request layer, so the first RPC fires headerless and Safari kills the fetch at the network layer (which surfaces as "Load failed", iOS's equivalent of Chrome's "Failed to fetch"). Desktop Chrome doesn't repro because session restoration completes faster than the user can click submit.
+
+Fix: subscribe to `supabase.auth.onAuthStateChange` and only flip `boot='ready'` after the listener fires its `INITIAL_SESSION` event. That event is the supabase-js v2 signal that auth is fully initialized (JWT loaded, listeners armed, ready to attach headers). DEV fallback (no session → fake user) and the redirect-to-hub path are preserved inside the same handler. Listener unsubscribed on unmount. SW cache bumped v18 → v19.
+
+If a similar "Load failed" pattern shows up on Wordy or Snibble, check their App-mount auth flow for the same `getSession()`-then-flip-ready pattern — likely the same fix.
+
+### iOS Safari "Load failed" — round 2: multi-only RPC retry (commit aea2056, 2026-05-01)
+
+The boot-time fix above did NOT resolve the multi-game case. Onyi (after fully closing Safari to pick up `rungles-v19`) still hit "TypeError: Load failed" on her first submission inside an active multi game. Solo was unaffected.
+
+Hypothesis: in multi, `MultiGamePage` mount fires 4-5 parallel `loadMatch` queries plus opens a realtime `subscribeMatch` WebSocket. If the user enters from a push notification (after the app was backgrounded long enough to require an auth-token auto-refresh), iOS Safari can drop the first RPC fetch because it's contending with the websocket handshake and/or the auth refresh fetch. By the second submit, both have settled and submissions go through.
+
+Fix: added `rpcWithRetry()` helper in `src/lib/matchService.js` wrapping `submitRung`, `skipTurn`, `giveUpMatch`. Catches *only* thrown `TypeError` (network-layer fail) and retries once after 400 ms. Server-returned errors (bad word, not your turn, etc.) come back in the `error` field and are NOT retried. SW cache bumped v19 → v20.
+
+If the retry pattern proves to work, consider lifting `rpcWithRetry` into `src/lib/supabase.js` so all Rungles RPCs benefit, and copying the pattern into Wordy and Snibble's data layers for the same iOS contention case.
+
+### Username live-join behavior — documented, deferred
+
+Question came up: does renaming a player update old leaderboard rows? Answer: yes, everywhere. All `rg_*` game/leaderboard tables store only `user_id`; usernames are joined live from `profiles` at render time (see `src/lib/statsService.js:88-93` and the same pattern in `matchService.js`, `lobbyService.js`). For a friends-and-family game this is the right default — score stays linked to the person.
+
+Flagged in `rae-side-quest/docs/refactor-backlog.md` (Someday section) as a thing to revisit before public launch — at that point trolls/ban-evasion, screenshot integrity, moderation trails, and deleted-account "Unknown" rows would push toward snapshotting username (and likely avatar_hue) onto the play row at insert time.
+
+
+### Rack reorder unification — Solo + Multi share visual permutation (commit d3b875c, 2026-05-03)
+
+Both modes now use a `rackOrder` permutation array instead of two divergent mechanisms. Solo previously physically mutated `state.rack` and remapped `selected[].idx` references; Multi already used a visual `rackOrder` but with a buggy splice-with-`to-1` math producing off-by-one swaps, AND was gated on `playable` so rack reorder was silently dead during opponent's turn (HTML disabled blocks clicks).
+
+Fix landed:
+- New `src/lib/rackOrder.js` with `swapInOrder` (clean swap, no off-by-one), `shuffleOrder`, `normalizeOrder`, `identityOrder`. Both Solo and Multi import from it.
+- Solo: `state.rackOrder` added to state shape, `reorderRack`/`shuffleRack` now permute order only. After `applySubmit`, rackOrder resets to identity for the new tile set. `loadState` is backward-compatible (defaults rackOrder to identity if missing).
+- Multi: rack swap + shuffle ungated from `playable` (purely visual prep, no server effect). `disabled={!playable}` removed from rack tiles. `rackOrder` persists to localStorage at `rungles:multi:rackOrder:<gameId>`, restored on initial load, cleared on rack refill (turn change).
+- Slot placement and carried-tile selection still gated on `playable` — those affect submission state.
+
+If rack-related bugs surface in either mode, check that `state.rack` (Solo) or server `rack` (Multi) is the source of truth for letters, and `rackOrder` is purely the visual permutation lookup. Selected entries store server idx, never visual position.
+
+### Tier 1 refactor — useBoardDerived + BoardSlots + CarriedTiles (commit f392900, 2026-05-03)
+
+Extracted three shared pieces from `SoloGamePage` and `MultiGamePage` so future styling tweaks and bug fixes land once instead of twice:
+
+- `hooks/useBoardDerived.js` — pure derivation from `selected`. Returns `{ filled, lastFilledSlot, hasGap, currentWord, usedRackIdxs, usedCarriedIdxs }`. Replaces inline computation blocks in both pages.
+- `components/BoardSlots.jsx` — the 7-slot play area (Tile + EmptySlot + 2× highlight). Takes `selected`, `premiumPos`, `onSlotTap`, optional `tileDisabled` (Multi gates on `playable`) and optional `wrapperClassName` (Solo passes flash-animation classes).
+- `components/CarriedTiles.jsx` — the 304px-wide carried-letter row with empty-state and label. Caller normalizes letters to `string[]` — Solo extracts `state.carried[i].letter`, Multi passes raw `carriedLetters`.
+
+Sizes after: SoloGamePage 418 → 375, MultiGamePage 610 → 582. Three shared files total 126 lines.
+
+What was deliberately NOT extracted: `handleSlotTap` and `handleSourceTap` handlers. They diverge fundamentally — Solo dispatches via pure reducers in `lib/soloGame.js`, Multi mutates fragmented `useState` pieces. Forcing them into a shared hook would require rewriting one of the state patterns. The pure-presentation extractions sidestep this entirely and were the actual safe wins.
+
+The Tier 1 / Tier 1.5 / Rungles MultiGamePage entry in `rae-side-quest/docs/refactor-backlog.md` can now be marked shipped.
+
+
+### Session: 2026-05-03 — Completed Games: same fix as Wordy
+
+Mirrored Wordy's completed-games fix to Rungles:
+- **Order-by bug:** `fetchUnseenResults` ordered on the joined `rg_games.finished_at` column via `referencedTable`. PostgREST only sorts the embed payload that way, not the parent rows. With `LIMIT 10` applied first, the section returned the OLDEST 10 finished games. Reworked to query `rg_games` as the parent so order-by sorts the rows we limit on.
+- **Always show 10:** removed the `dismissed_at IS NULL` filter and the `rungles_seen_results_*` localStorage filter.
+- **Removed dismiss UI:** `LobbyResultsBanner` no longer renders the X button. `dismissResult` helper deleted from `lobbyService`. `CompletedGamesSection` no longer wires `onDismiss`.
+
+Note: The `rg_dismiss_result` RPC and `rg_players.dismissed_at` column still exist in the DB. Left in place — harmless and would only need cleanup as part of a wider schema review.
+
+**Commit:** `0af2bfd`.
+
+
+### Session: 2026-05-03 — Invite-a-friend feature
+
+Mirrored Snibble's invite pattern to Rungles. Same single "Create game" button now opens a sheet with two modes: 🌍 Open (anyone joins, 7-day auto-cancel) and 👥 With a friend (only invitee joins, 3-day auto-cancel).
+
+**Schema (`migration-010-invite-friend.sql`, applied):**
+- `rg_games.invited_user_id` (uuid?) — if set, only this user can see + join
+- `rg_games.expires_at` (timestamptz) — auto-set by `rg_set_game_expiry` BEFORE-INSERT trigger; 3d for invited, 7d for open
+- `rg_games.cancelled_at` (timestamptz?) — set when creator manually cancels
+- `'cancelled'` and `'expired'` added to status check constraint
+- Read-RLS replaced — invited games hidden from non-participants. Policy uses `created_by` and `invited_user_id` only (no rg_players cross-table check) to avoid RLS recursion. Once invitee joins, they remain pinned by invited_user_id, so reads still work.
+- `rg_create_game(p_total_rungs, p_invited_user_id)` — old single-arg sig dropped; clients must pass two args (null is fine for the second)
+- `rg_join_game` — refuses non-invitees on private invite games
+- `rg_cancel_game(p_game_id)` — creator-only, blocked once any rung exists
+- `rg_expire_stale_games()` — sweeps past-expiry waiting games to status='expired'
+- `rg_notify_game_invited` AFTER-INSERT trigger → POSTs to rungles-push-notification with type=`game_invited`
+
+**Edge function (deployed):** `game_invited` handler in `rungles-push-notification` — looks up inviter username, sends "Rungles — match invite: {inviter} invited you to a Rungles match" push to invitee.
+
+**Frontend:**
+- `src/hooks/useFriends.js` — same shape as Snibble's; reads hub friendships+profiles
+- `src/components/CreateGameSheet.jsx` (new) — toggle + search + friend picker, rungles-themed (rungles-* tokens)
+- `src/lib/lobbyService.js` — `createGame({ totalRungs, invitedUserId? })`, new `cancelGame()`; `fetchLobby` now selects `invited_user_id`/`expires_at`/`cancelled_at`/`created_by` and lazy-calls `rg_expire_stale_games` before reading
+- `src/components/LobbyList.jsx` — buckets `invitedToYou` to the top, wires the cancel handler, passes `onCancel` only for waiting games the user created
+- `src/components/LobbyRow.jsx` — accepts `isInviteToMe` (amber row + "Accept" button + synthesized "You" chip + "(N inviter) invited you" subtext) and `onCancel` (✕ button on creator's waiting rows). For creator's invite rows, subtext reads "📨 Invited {invitee}".
+- `src/components/LandingPage.jsx` — opens `CreateGameSheet` instead of calling `createGame` directly; passes `user` from session
+
+**Verified in preview:** sheet opens with Open mode by default, toggle swaps to friend mode, 3 accepted friends load (Krispy/Onyi/snuggie), search filters as you type, friend selection updates button label to "Send invite to {name}", ✕ cancel button appears on existing waiting-for-opponent row.
+
+**Auto-expiry:** lazy via `rg_expire_stale_games()` called on each lobby load. Cron is a future add.
+
+**Cancelled/expired UX:** cancelled games disappear from lobby. Expired games drop out of the waiting-status filter naturally (status flips to 'expired'). Both still show in completed history if needed (status check accepts both).
+
+
+
+## 2026-05-04 — Tile rack cross-browser layout
+
+Switched the rack container in both `SoloGamePage.jsx` and `MultiGamePage.jsx` from `flex … flex-nowrap` to `grid grid-cols-7 gap-1 max-w-[304px] mx-auto`. Rungles wasn't visibly broken (flex-nowrap held), but grid is more robust against future tile/gap changes and matches the Wordy fix where Firefox was wrapping the 7th tile. Cache bumped to v24.
