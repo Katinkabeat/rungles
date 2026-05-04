@@ -145,7 +145,7 @@ export default function CreateGameSheet({ user, onClose, onCreated }) {
         {mode === 'friend' && (
           <>
             <div className="text-xs text-rungles-700 dark:text-rungles-200 bg-rungles-50 dark:bg-[#1f1240] border border-dashed border-rungles-200 rounded-lg px-3 py-2 mb-3">
-              Only the friend you pick can join. Auto-cancels after 3 days if they don't accept.
+              Only the friend you pick can join. Auto-cancels after 24 hours if they don't accept.
             </div>
 
             {friendsLoading ? (
