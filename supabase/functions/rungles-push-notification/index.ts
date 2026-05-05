@@ -120,6 +120,30 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
     }
 
+    // ── opponent_joined: rg_players AFTER INSERT trigger ────────
+    if (payload.type === 'opponent_joined') {
+      const { game_id, joiner_id, creator_id } = payload
+      if (!game_id || !joiner_id || !creator_id) {
+        return new Response(JSON.stringify({ skipped: 'missing fields' }), { status: 200, headers: corsHeaders })
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', joiner_id)
+        .maybeSingle()
+      const joinerName = profile?.username ?? 'Someone'
+
+      const result = await sendIfOptedIn(supabase, creator_id, 'rungles', 'opponent_joined', {
+        title: 'Rungles — opponent joined!',
+        body: `${joinerName} joined your match. Time to play! 🪜`,
+        tag: `rungles-join-${game_id}`,
+        url: `/rungles/?game=${game_id}`,
+        icon: '/rungles/favicon.svg',
+      })
+      return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
+    }
+
     // ── nudge (from client) ─────────────────────────────────────
     // Client has already updated rg_games.last_nudged_at via the rg_nudge
     // RPC (which enforces cooldown + caller-in-game). This branch just
