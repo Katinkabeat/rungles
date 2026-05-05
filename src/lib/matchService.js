@@ -5,33 +5,36 @@ import { supabase, rpcWithRetry } from './supabase.js'
 
 // Load everything we need to render the match. Returns
 // { game, players: [{userId, playerIdx, score, username}], rack, rungs, premiumPos }.
+//
+// Independent queries fan out in parallel; only profiles (needs player ids)
+// and premiumPos (needs rung count) wait on a prior result.
 export async function loadMatch(gameId, myUserId) {
-  const { data: game, error: gErr } = await supabase
-    .from('rg_games').select('*').eq('id', gameId).single()
-  if (gErr) throw gErr
+  const [gameRes, playersRes, rackRes, rungsRes] = await Promise.all([
+    supabase.from('rg_games').select('*').eq('id', gameId).single(),
+    supabase.from('rg_players')
+      .select('user_id, player_idx, score, dismissed_at').eq('game_id', gameId),
+    supabase.from('rg_racks').select('rack')
+      .eq('game_id', gameId).eq('user_id', myUserId).maybeSingle(),
+    supabase.from('rg_rungs').select('*').eq('game_id', gameId)
+      .order('rung_number', { ascending: true }),
+  ])
 
-  const { data: rawPlayers } = await supabase
-    .from('rg_players').select('user_id, player_idx, score, dismissed_at').eq('game_id', gameId)
-  const players = rawPlayers ?? []
+  if (gameRes.error) throw gameRes.error
+  const game = gameRes.data
+  const players = playersRes.data ?? []
+  const rack = rackRes.data?.rack ?? []
+  const rungs = rungsRes.data ?? []
 
-  let usernameById = {}
   const ids = players.map(p => p.user_id)
-  if (ids.length) {
-    const { data: profiles } = await supabase
-      .from('profiles').select('id, username').in('id', ids)
-    usernameById = Object.fromEntries((profiles ?? []).map(p => [p.id, p.username]))
-  }
-
-  const { data: rackRow } = await supabase
-    .from('rg_racks').select('rack')
-    .eq('game_id', gameId).eq('user_id', myUserId).maybeSingle()
-  const rack = rackRow?.rack ?? []
-
-  const { data: rungs } = await supabase
-    .from('rg_rungs').select('*').eq('game_id', gameId)
-    .order('rung_number', { ascending: true })
-
-  const premiumPos = await fetchPremium(gameId, (rungs?.length ?? 0) + 1)
+  const [profilesRes, premiumPos] = await Promise.all([
+    ids.length
+      ? supabase.from('profiles').select('id, username').in('id', ids)
+      : Promise.resolve({ data: [] }),
+    fetchPremium(gameId, rungs.length + 1),
+  ])
+  const usernameById = Object.fromEntries(
+    (profilesRes.data ?? []).map(p => [p.id, p.username])
+  )
 
   const enrichedPlayers = players.map(p => ({
     userId: p.user_id,
@@ -41,7 +44,7 @@ export async function loadMatch(gameId, myUserId) {
     username: usernameById[p.user_id] ?? '?',
   }))
 
-  return { game, players: enrichedPlayers, rack, rungs: rungs ?? [], premiumPos }
+  return { game, players: enrichedPlayers, rack, rungs, premiumPos }
 }
 
 export async function fetchPremium(gameId, rungNumber) {

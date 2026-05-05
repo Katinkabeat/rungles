@@ -38,7 +38,7 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
   useEffect(() => {
     let alive = true
     refresh()
-    const channel = subscribeLobby(() => { if (alive) refresh() })
+    const channel = subscribeLobby(myUserId, () => { if (alive) refresh() })
     return () => { alive = false; supabase.removeChannel(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUserId])

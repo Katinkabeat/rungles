@@ -224,3 +224,27 @@ notices Rungles-specific slowness):
 - Full lobby DOM rebuild on every subscription event (now less of a
   problem since the subscription itself is narrowed)
 - O(m) `indexOf` lookup in `appendWordWithCarryHighlight`
+
+## Match-load perf sweep (2026-05-04)
+
+The vanilla-JS lobby-subscription fix (commit `60a4144`) had never been
+ported to the React rewrite. Reapplied here, plus parallelized
+`loadMatch`. Cache bumped to `rungles-v26`.
+
+- **`src/lib/lobbyService.js` — `subscribeLobby(myUserId, onChange)`**
+  now takes the user id and uses three filtered subscriptions
+  (`rg_games created_by=eq.me`, `rg_games invited_user_id=eq.me`,
+  `rg_players user_id=eq.me`) on a per-user channel name. Previously
+  every move on the platform fired `refresh()` and rebuilt the lobby.
+  Same tradeoff as vanilla: new public games created by others won't
+  appear live until the next manual refresh.
+- **`src/components/LobbyList.jsx`** — caller updated to pass
+  `myUserId`.
+- **`src/lib/matchService.js` — `loadMatch()`** now fans out the four
+  independent queries (`rg_games`, `rg_players`, `rg_racks`,
+  `rg_rungs`) via `Promise.all`, then runs `profiles` + `fetchPremium`
+  in parallel as the dependent stage. Was 6 sequential roundtrips;
+  now 2 stages.
+- **Still unfixed** (low priority): `loadMatch` selects `*` from
+  `rg_games` and `rg_rungs`; `fetchLobby`'s `rg_expire_stale_games`
+  RPC fires on every refresh.

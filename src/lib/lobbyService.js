@@ -55,15 +55,27 @@ export async function fetchLobby(myUserId) {
   return { games: visible, usernameById }
 }
 
-// Subscribes to rg_games + rg_players changes. Returns the channel — caller
-// is responsible for `supabase.removeChannel(channel)` on cleanup.
-export function subscribeLobby(onChange) {
+// Subscribes to rg_games + rg_players changes scoped to this user.
+// Returns the channel — caller is responsible for
+// `supabase.removeChannel(channel)` on cleanup.
+//
+// Tradeoff: filters are server-side, so we only fire onChange for rows
+// that touch this user (games I created, games I'm invited to, and my
+// player rows). Open public games created by others won't push live;
+// they appear on the next manual refresh / navigation. Without this
+// scoping, every move on the platform triggered a full lobby rebuild.
+export function subscribeLobby(myUserId, onChange) {
   return supabase
-    .channel('lobby_rg_games')
+    .channel(`lobby_rg_games_${myUserId}`)
     .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_games' }, onChange)
+      { event: '*', schema: 'public', table: 'rg_games',
+        filter: `created_by=eq.${myUserId}` }, onChange)
     .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_players' }, onChange)
+      { event: '*', schema: 'public', table: 'rg_games',
+        filter: `invited_user_id=eq.${myUserId}` }, onChange)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'rg_players',
+        filter: `user_id=eq.${myUserId}` }, onChange)
     .subscribe()
 }
 
