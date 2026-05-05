@@ -1,7 +1,7 @@
 // Data layer for an active rg_games match. Server is source of truth.
 // Pure functions only — React component owns state and subscriptions.
 
-import { supabase } from './supabase.js'
+import { supabase, rpcWithRetry } from './supabase.js'
 
 // Load everything we need to render the match. Returns
 // { game, players: [{userId, playerIdx, score, username}], rack, rungs, premiumPos }.
@@ -45,9 +45,11 @@ export async function loadMatch(gameId, myUserId) {
 }
 
 export async function fetchPremium(gameId, rungNumber) {
-  const { data, error } = await supabase.rpc('rg_premium_pos', {
-    p_game_id: gameId, p_rung_number: rungNumber,
-  })
+  const { data, error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_premium_pos', {
+      p_game_id: gameId, p_rung_number: rungNumber,
+    })
+  )
   if (error) return null
   return data
 }
@@ -57,24 +59,6 @@ export async function refreshRack(gameId, myUserId) {
     .from('rg_racks').select('rack')
     .eq('game_id', gameId).eq('user_id', myUserId).maybeSingle()
   return data?.rack ?? []
-}
-
-// Retry an RPC once on network-layer failure (thrown TypeError = "Load failed"
-// on iOS Safari / "Failed to fetch" on Chrome). Server-returned errors (bad
-// word, not your turn, etc.) come back in the `error` field and are NOT
-// retried. Mitigates an iOS-Safari-specific bug where the first action after
-// entering a multi game can fail because the realtime websocket handshake or
-// auth-token auto-refresh is contending with the RPC fetch.
-async function rpcWithRetry(fn) {
-  try {
-    return await fn()
-  } catch (e) {
-    if (e instanceof TypeError) {
-      await new Promise(r => setTimeout(r, 400))
-      return await fn()
-    }
-    throw e
-  }
 }
 
 // Submit a rung. Returns the score awarded.

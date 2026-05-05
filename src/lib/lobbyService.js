@@ -1,4 +1,4 @@
-import { supabase, SUPABASE_URL, SUPABASE_ANON } from './supabase.js'
+import { supabase, rpcWithRetry, SUPABASE_URL, SUPABASE_ANON } from './supabase.js'
 
 const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000
 
@@ -9,7 +9,7 @@ const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000
 export async function fetchLobby(myUserId) {
   // Cheap server-side sweep — only updates rows that are actually
   // past their expires_at deadline. Non-fatal if it fails.
-  try { await supabase.rpc('rg_expire_stale_games') } catch { /* ignore */ }
+  try { await rpcWithRetry(() => supabase.rpc('rg_expire_stale_games')) } catch { /* ignore */ }
 
   const { data: games, error } = await supabase
     .from('rg_games')
@@ -158,16 +158,20 @@ export function subscribeFinishes(onFinish) {
  * for an open match (anyone joins, auto-cancels in 7 days).
  */
 export async function createGame({ totalRungs = 10, invitedUserId = null } = {}) {
-  const { data, error } = await supabase.rpc('rg_create_game', {
-    p_total_rungs: totalRungs,
-    p_invited_user_id: invitedUserId,
-  })
+  const { data, error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_create_game', {
+      p_total_rungs: totalRungs,
+      p_invited_user_id: invitedUserId,
+    })
+  )
   if (error) throw error
   return data // game id
 }
 
 export async function joinGame(gameId) {
-  const { error } = await supabase.rpc('rg_join_game', { p_game_id: gameId })
+  const { error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_join_game', { p_game_id: gameId })
+  )
   if (error) throw error
 }
 
@@ -178,12 +182,16 @@ export async function joinGame(gameId) {
  *   - no rungs have been played
  */
 export async function cancelGame(gameId) {
-  const { error } = await supabase.rpc('rg_cancel_game', { p_game_id: gameId })
+  const { error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_cancel_game', { p_game_id: gameId })
+  )
   if (error) throw error
 }
 
 export async function sendNudge(gameId, nudgerName) {
-  const { error: rpcErr } = await supabase.rpc('rg_nudge', { p_game_id: gameId })
+  const { error: rpcErr } = await rpcWithRetry(() =>
+    supabase.rpc('rg_nudge', { p_game_id: gameId })
+  )
   if (rpcErr) throw rpcErr
 
   // Fire-and-forget push delivery — don't block on it.

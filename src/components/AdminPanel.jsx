@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { supabase } from '../lib/supabase.js'
+import { supabase, rpcWithRetry } from '../lib/supabase.js'
 
 // Minimal admin panel — Close Games view only. Admin management
 // (granting/revoking permissions) lives in Wordy's panel; Rungles
@@ -13,7 +13,7 @@ export default function AdminPanel() {
   const [loading, setLoading]       = useState(true)
 
   const loadGames = useCallback(async () => {
-    const { data, error } = await supabase.rpc('rg_admin_list_open_games')
+    const { data, error } = await rpcWithRetry(() => supabase.rpc('rg_admin_list_open_games'))
     if (error) {
       console.error('rg_admin_list_open_games failed:', error)
       toast.error(`Couldn't load games: ${error.message}`)
@@ -44,7 +44,7 @@ export default function AdminPanel() {
     }
     setClosingId(gameId)
     try {
-      const { error } = await supabase.rpc('rg_admin_close_game', { p_game_id: gameId, p_reason: reason })
+      const { error } = await rpcWithRetry(() => supabase.rpc('rg_admin_close_game', { p_game_id: gameId, p_reason: reason }))
       if (error) throw error
       toast.success('Game closed.')
       setGames(prev => prev.filter(g => g.id !== gameId))
