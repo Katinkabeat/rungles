@@ -22,6 +22,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper: respect the recipient's notification prefs before sending.
+// Calls sq_notification_enabled(user, app, topic) — if false, skip
+// the send entirely. Fail-open on RPC error so a transient DB blip
+// doesn't break the platform.
+async function sendIfOptedIn(
+  supabase: any,
+  userId: string,
+  app: string,
+  topic: string,
+  payload: { title: string; body: string; tag: string; url: string; icon?: string }
+): Promise<{ sent: boolean; reason?: string; via?: string }> {
+  const { data: enabled, error } = await supabase.rpc('sq_notification_enabled', {
+    p_user_id: userId,
+    p_app: app,
+    p_topic: topic,
+  })
+  if (error) {
+    console.error('sq_notification_enabled failed (fail-open):', error)
+  } else if (enabled === false) {
+    return { sent: false, reason: 'opted out' }
+  }
+  return sendPushToUser(supabase, userId, payload)
+}
+
 // Tries the SideQuest hub subscription first (so users who enabled
 // notifications in SideQuest get a single consolidated notification),
 // falls back to the user's Rungles-specific subscription otherwise.
@@ -86,7 +110,7 @@ serve(async (req: Request) => {
         .maybeSingle()
       const inviterName = profile?.username ?? 'Someone'
 
-      const result = await sendPushToUser(supabase, record.invited_user_id, {
+      const result = await sendIfOptedIn(supabase, record.invited_user_id, 'rungles', 'invite', {
         title: 'Rungles — match invite',
         body: `${inviterName} invited you to a Rungles match. Tap to play! 🪜`,
         tag: `rungles-invite-${record.id}`,
@@ -124,7 +148,7 @@ serve(async (req: Request) => {
         return new Response(JSON.stringify({ skipped: 'player not found' }), { status: 200, headers: corsHeaders })
       }
 
-      const result = await sendPushToUser(supabase, currentPlayer.user_id, {
+      const result = await sendIfOptedIn(supabase, currentPlayer.user_id, 'rungles', 'nudge', {
         title: "Rungles — it's your turn!",
         body: `${nudger_name || 'Someone'} is waiting for your move! 🔔`,
         tag: `rungles-nudge-${game_id}`,
@@ -179,7 +203,7 @@ serve(async (req: Request) => {
       }
     }
 
-    const result = await sendPushToUser(supabase, currentPlayer.user_id, {
+    const result = await sendIfOptedIn(supabase, currentPlayer.user_id, 'rungles', 'your_turn', {
       title: 'Rungles — your turn!',
       body: `${moverName} played. Your move! 🪜`,
       tag: `rungles-turn-${gameId}`,
