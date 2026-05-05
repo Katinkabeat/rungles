@@ -92,6 +92,23 @@ Fix: added `rpcWithRetry()` helper in `src/lib/matchService.js` wrapping `submit
 
 If the retry pattern proves to work, consider lifting `rpcWithRetry` into `src/lib/supabase.js` so all Rungles RPCs benefit, and copying the pattern into Wordy and Snibble's data layers for the same iOS contention case.
 
+### iOS Safari "Load failed" — round 3: retry guard was a no-op (commit 7aca7e7, 2026-05-04)
+
+The round-2 retry didn't help. Onyi reported the same error a few days after invite-a-friend shipped, even though her flow didn't involve invites. Investigation found the guard `if (e instanceof TypeError)` never matched, because `@supabase/supabase-js` v2.43.5's postgrest-js catches the underlying `TypeError` from `fetch()` and **repackages it** into a plain object whose `.message` starts with `"FetchError:"`. It returns the wrapped error through the normal `{ error }` channel rather than re-throwing the TypeError. Confirmed in `node_modules/@supabase/postgrest-js/dist/index.mjs:290-321`.
+
+So when our code did `if (error) throw error`, it threw a plain object, and the retry's `instanceof TypeError` was false. Round 2 has been a no-op since it shipped.
+
+Round-3 fix:
+- Lifted `rpcWithRetry` into `src/lib/supabase.js` (single source of truth).
+- Network-fail detection now matches by message regex (`/load failed|failed to fetch|fetcherror|networkerror/i`) **plus** `instanceof TypeError`, and inspects both thrown exceptions and the returned `{ error }` object.
+- Applied the wrapper to every `supabase.rpc()` call site across the codebase:
+  - matchService.js: `submitRung`, `skipTurn`, `giveUpMatch`, `fetchPremium`
+  - lobbyService.js: `createGame`, `joinGame`, `cancelGame`, `sendNudge`, `rg_expire_stale_games` sweep
+  - AdminPanel.jsx: `rg_admin_list_open_games`, `rg_admin_close_game`
+- SW cache bumped v24 → v25.
+
+**Lesson for Wordy/Snibble:** if you copy this retry helper, do NOT use `instanceof TypeError` as the only guard — supabase-js v2 hides the TypeError. Match on message string OR check the returned `{ error }` object.
+
 ### Username live-join behavior — documented, deferred
 
 Question came up: does renaming a player update old leaderboard rows? Answer: yes, everywhere. All `rg_*` game/leaderboard tables store only `user_id`; usernames are joined live from `profiles` at render time (see `src/lib/statsService.js:88-93` and the same pattern in `matchService.js`, `lobbyService.js`). For a friends-and-family game this is the right default — score stays linked to the person.
@@ -175,3 +192,35 @@ Mirrored Snibble's invite pattern to Rungles. Same single "Create game" button n
 ## 2026-05-04 — Tile rack cross-browser layout
 
 Switched the rack container in both `SoloGamePage.jsx` and `MultiGamePage.jsx` from `flex … flex-nowrap` to `grid grid-cols-7 gap-1 max-w-[304px] mx-auto`. Rungles wasn't visibly broken (flex-nowrap held), but grid is more robust against future tile/gap changes and matches the Wordy fix where Firefox was wrapping the 7th tile. Cache bumped to v24.
+
+## 2026-05-04 — perf sweep: lobby subscription scoping
+
+Same fix as the Wordy lobby. `subscribeLobby()` in `js/multiplayer.js`
+was subscribed to every `rg_games` and `rg_players` row change in the
+database, causing a full lobby DOM rebuild on every other player's move
+across the platform. Now narrowed via filters:
+```js
+.channel(`lobby_rg_games_${me}`)
+.on('postgres_changes',
+    { event: '*', schema: 'public', table: 'rg_games', filter: `created_by=eq.${me}` }, ...)
+.on('postgres_changes',
+    { event: '*', schema: 'public', table: 'rg_players', filter: `user_id=eq.${me}` }, ...)
+```
+
+Other people's open games appear via the existing visibility-change
+refresh instead of in real-time — acceptable trade-off since urgent
+events still come via push notifications.
+
+**Cross-cutting (rae-side-quest):** Added 5 perf indexes via
+`sq_perf_indexes.sql` migration on `rg_players(user_id)`,
+`rg_solo_games(user_id)`, `rg_rungs(player_user_id, created_at)`,
+plus the Wordy equivalents.
+
+Commit `60a4144`.
+
+**Audit-flagged but NOT fixed yet** (lower priority; revisit if Rae
+notices Rungles-specific slowness):
+- Hint word finder iterates all 172k words on main thread
+- Full lobby DOM rebuild on every subscription event (now less of a
+  problem since the subscription itself is narrowed)
+- O(m) `indexOf` lookup in `appendWordWithCarryHighlight`
