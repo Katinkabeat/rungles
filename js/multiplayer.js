@@ -413,13 +413,21 @@ function enterMatch(gameId) {
 
 function subscribeLobby() {
   unsubscribeLobby();
+  if (!state.session) return;
+  const me = state.session.user.id;
+  // Narrow filters: only games I created, only rg_players rows that are
+  // mine. The previous unfiltered subscription fired on every other
+  // player's move across the entire Rungles database, causing the lobby
+  // to fully rebuild its DOM constantly. Other people's open games
+  // appearing in real-time is the trade-off — they show up on the next
+  // visibility-change refresh, which is fine.
   state.lobbySub = supabase
-    .channel('lobby_rg_games')
+    .channel(`lobby_rg_games_${me}`)
     .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_games' },
+      { event: '*', schema: 'public', table: 'rg_games', filter: `created_by=eq.${me}` },
       () => { if (!state.currentGameId) refreshLobby(); })
     .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_players' },
+      { event: '*', schema: 'public', table: 'rg_players', filter: `user_id=eq.${me}` },
       () => { if (!state.currentGameId) refreshLobby(); })
     .subscribe();
 }
