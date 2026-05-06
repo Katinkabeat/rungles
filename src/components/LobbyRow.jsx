@@ -44,11 +44,7 @@ export default function LobbyRow({
   const actionHandler = () => isInviteToMe || !isMine ? onJoin(game.id) : onResume(game.id)
 
   return (
-    <div className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${
-      isInviteToMe
-        ? 'bg-amber-50 dark:bg-[#2a1f10] border-amber-200 dark:border-amber-700'
-        : 'bg-white dark:bg-[#1f1240] border-rungles-100 dark:border-[#2d1b55]'
-    }`}>
+    <div className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 bg-white dark:bg-[#1f1240] border-rungles-100 dark:border-[#2d1b55]">
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           {players.map((p, i) => {
