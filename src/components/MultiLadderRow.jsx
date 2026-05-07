@@ -1,11 +1,16 @@
 import React from 'react'
 import { highlightCarried } from '../lib/matchService.js'
 
-// Ladder row for multi: server rungs don't store per-letter sources, so we
-// pool-match against the previous word to highlight carried letters.
+// Ladder row for multi. Prefers the authoritative `word_sources` array stored
+// on the rung (added in migration-013). For old rungs that predate that column
+// we fall back to pool-matching against the previous word — imperfect because
+// it can't tell a freshly-played rack tile from a coincidentally-same letter,
+// but no worse than the pre-013 behavior.
 export default function MultiLadderRow({ rung, prevWord, label, onClick }) {
   const letters = (rung.word || '').toUpperCase().split('')
-  const carriedFlags = highlightCarried(rung.word, prevWord)
+  const carriedFlags = rung.word_sources
+    ? rung.word_sources.map(s => s === 0)
+    : highlightCarried(rung.word, prevWord)
   const tappable = !!onClick
   return (
     <div
