@@ -248,3 +248,43 @@ ported to the React rewrite. Reapplied here, plus parallelized
 - **Still unfixed** (low priority): `loadMatch` selects `*` from
   `rg_games` and `rg_rungs`; `fetchLobby`'s `rg_expire_stale_games`
   RPC fires on every refresh.
+
+## 2026-05-07 — Multi ladder color coding fix (commit 9d98263, migration-013)
+
+Rae and Onyi noticed multiplayer rungs sometimes coloring scoring letters
+grey and missing the gold 2x highlight. Solo was unaffected.
+
+Root cause: pre-013 the `rg_rungs` table had no per-letter source column.
+`rg_submit_rung` accepted `p_word_sources` for validation, then threw it
+away. `MultiLadderRow.jsx` had to guess via `highlightCarried()` in
+`src/lib/matchService.js`, which greedy-pool-matched the new word's letters
+against the previous rung's word. Any letter coincidentally present in the
+previous rung got painted grey even when the player actually played a fresh
+rack tile for it — and the `!isCarried` guard on the gold premium then
+suppressed gold for the same letters.
+
+Fix:
+- **`migration-013-rung-sources.sql`** — `ALTER TABLE rg_rungs ADD COLUMN
+  word_sources int[]` (nullable; old rows stay NULL). Replaced
+  `rg_submit_rung` to write `p_word_sources` into the new column. Idempotent.
+- **`src/components/MultiLadderRow.jsx`** — reads `rung.word_sources` when
+  present, falls back to the legacy `highlightCarried` pool-match for old
+  rungs. `loadMatch`'s `select('*')` from `rg_rungs` already passes the new
+  column through; no service-layer changes needed.
+- Cache bumped v26 → v27.
+
+Existing 260 rows have NULL `word_sources` and render exactly as before
+(fall-back path). Only newly-played multi rungs use the authoritative
+sources array. Solo's `LadderRow.jsx` was already correct (per-letter
+sources stored in local state).
+
+Migration applied via Management API SQL endpoint
+(`api.supabase.com/v1/projects/.../database/query`) — direct `psql` to the
+`db.<ref>.supabase.co` host fails with DNS resolution on this network
+(IPv6-only). Note for future migrations: pooler URL would also work but
+isn't in `.env.supabase`; the API route works with `SUPABASE_ACCESS_TOKEN`
++ a `User-Agent: curl/8.0.0` header (default Python UA gets blocked by
+Cloudflare with code 1010).
+
+Visual end-to-end confirmation deferred — needs a fresh two-player game
+between Rae and Onyi to see new rungs render with the corrected colors.
