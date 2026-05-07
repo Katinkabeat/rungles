@@ -48,9 +48,10 @@ export default function RulesModal({ open, onClose }) {
 
         <Section title="Scoring">
           <ul>
-            <li>Only <strong>rack letters score</strong>. Carried letters are free, but earn no points.</li>
+            <li>Only <strong className="text-rungles-700 dark:text-rungles-200">rack letters (purple)</strong> score. <strong className="text-neutral-500 dark:text-neutral-400">Carried letters (gray)</strong> are free, but earn no points.</li>
             <li><strong>Length bonus:</strong> +2 points per letter beyond 4.</li>
-            <li><strong>2× slot:</strong> each rung has one premium position (gold). If a rack letter lands there, its value is doubled. Carried letters don't trigger it.</li>
+            <li><strong className="text-amber-600 dark:text-amber-400">2× slot (gold):</strong> each rung has one premium position. If a rack letter lands there, its value is doubled. Carried letters don't trigger it.</li>
+            <li>These same colors appear in the ladder when you view previous rungs, so you can always see which letters were carried and which scored.</li>
           </ul>
         </Section>
 
