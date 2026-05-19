@@ -7,7 +7,7 @@ import LandingPage from './components/LandingPage.jsx'
 import { SQLobbyShell } from '../../rae-side-quest/packages/sq-ui/index.js'
 import SoloGamePage from './components/SoloGamePage.jsx'
 import MultiGamePage from './components/MultiGamePage.jsx'
-import StatsModal from './components/StatsModal.jsx'
+import StatsPage from './components/StatsPage.jsx'
 import { supabase } from './lib/supabase.js'
 import { loadDictionary } from './lib/dictionary.js'
 
@@ -23,10 +23,10 @@ function AppInner() {
   const [profile, setProfile] = useState(null)
   const [adminRecord, setAdminRecord] = useState(null) // null = not admin
   const [lobbyTab, setLobbyTab] = useState('lobby') // 'lobby' | 'admin'
-  // view: 'landing' | 'solo' | 'multi'
+  // view: 'landing' | 'solo' | 'multi' | 'stats'
   const [view, setView] = useState('landing')
   const [currentGameId, setCurrentGameId] = useState(null)
-  const [statsOpen, setStatsOpen] = useState(false)
+  const [statsReturnView, setStatsReturnView] = useState('landing')
 
   useEffect(() => {
     let alive = true
@@ -98,7 +98,10 @@ function AppInner() {
     )
   }
 
-  const openStats = () => setStatsOpen(true)
+  // Open the full-page Stats view. Remember where we came from so the
+  // "← Back to lobby" button can return to it (e.g. mid-multiplayer).
+  const openStats = () => { setStatsReturnView(view); setView('stats') }
+  const closeStats = () => setView(statsReturnView)
 
   return (
     <>
@@ -145,11 +148,14 @@ function AppInner() {
         />
       )}
 
-      <StatsModal
-        open={statsOpen}
-        myUserId={session?.user?.id}
-        onClose={() => setStatsOpen(false)}
-      />
+      {view === 'stats' && (
+        <StatsPage
+          session={session}
+          profile={profile}
+          isAdmin={!!adminRecord}
+          onBack={closeStats}
+        />
+      )}
 
       <Toaster position="top-center" />
     </>
