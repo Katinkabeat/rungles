@@ -283,15 +283,15 @@ function LeaderboardBody({ myUserId, open }) {
       )}
 
       {!err && data && rows.length > 0 && (
-        <div className="divide-y divide-rungles-100 dark:divide-rungles-900">
+        <ol className="space-y-1.5">
           {rows.map((r, i) => (
             <LeaderboardRow key={i} rank={i + 1} row={r} isMe={r.userId === myUserId} />
           ))}
           {showMyRankRow && (
             <>
-              <div className="pt-2 text-center text-[10px] uppercase tracking-wider text-rungles-500 border-t border-rungles-100 dark:border-rungles-900 mt-2">
-                your best in this window
-              </div>
+              <li className="pt-2 text-center text-[10px] uppercase tracking-wider text-rungles-500 border-t border-rungles-100 dark:border-rungles-900 mt-2">
+                your rank
+              </li>
               <LeaderboardRow
                 rank={myRank.rank}
                 row={{ userId: myUserId, username: 'You', totalScore: myRank.score }}
@@ -299,7 +299,7 @@ function LeaderboardBody({ myUserId, open }) {
               />
             </>
           )}
-        </div>
+        </ol>
       )}
 
       {bestRungErr && (
@@ -327,15 +327,22 @@ function LeaderboardBody({ myUserId, open }) {
 
 function LeaderboardRow({ rank, row, isMe }) {
   return (
-    <div className="flex items-center justify-between text-sm py-1.5">
-      <span>
-        <span className="text-rungles-500 mr-1">{rank}.</span>
-        <span className={isMe ? 'font-bold text-rungles-700 dark:text-rungles-100 underline' : 'text-rungles-700 dark:text-rungles-200'}>
-          {row.username ?? '…'}
-        </span>
-      </span>
-      <span className="font-bold text-rungles-700 dark:text-rungles-100">{row.totalScore}</span>
-    </div>
+    <li className={`flex items-center gap-3 px-3 py-2 rounded-xl ${
+      isMe
+        ? 'bg-rungles-100 dark:bg-rungles-800 ring-1 ring-rungles-300 dark:ring-rungles-600'
+        : 'bg-rungles-50 dark:bg-rungles-900/50'
+    }`}>
+      <div className="w-9 text-center font-display text-sm text-rungles-600 dark:text-rungles-300">
+        #{rank}
+      </div>
+      <div className="flex-1 min-w-0 truncate text-sm">
+        <span className="font-bold text-rungles-800 dark:text-rungles-100">{row.username ?? '…'}</span>
+        {isMe && <span className="ml-2 text-[10px] font-normal text-rungles-500">← you</span>}
+      </div>
+      <div className="font-display text-sm text-rungles-800 dark:text-rungles-100">
+        {row.totalScore} pts
+      </div>
+    </li>
   )
 }
 

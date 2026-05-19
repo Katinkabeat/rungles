@@ -22,6 +22,16 @@ Rungles **shares Wordy's Supabase project** (ref `yyhewndblruwxsrqzart`) instead
 - Future split path: spin up new Supabase project, copy `rg_*` tables and functions, repoint frontend. Clean because of the prefix.
 - Migration plan lives at `rungles/supabase/migration-001-initial.sql` — idempotent (drops `rg_*` first), uses SECURITY DEFINER RPCs for all mutations so the tile bag stays hidden, RLS scopes racks to the owning user.
 
+## c92 follow-up: per-user BEST + medal removal (2026-05-19)
+
+After shipping c92, Rae noticed Rungles looked different from Yahdle/Snibble — per-game ranking meant Rae appeared multiple times in the top 10 (positions #1, #3, #5, #8) whereas the other two games showed one row per user. Decided to:
+
+- **Switch to per-user BEST game in window** (was per-game). Each user appears once, ranked by their best single game's `total_score` in the window. Tie-break: earliest played_at among their best games. Preserves Rungles' "best single game" framing (consistent with the "🎯 Best single rung ever" badge) but unifies the row shape with Yahdle/Snibble. Migration `migration-015-leaderboard-per-user-best.sql` uses `DISTINCT ON (user_id) ORDER BY user_id, total_score DESC, played_at ASC`.
+- **Drop medal emojis** (🥇🥈🥉) across ALL THREE games — Rae asked for plain `#N` everywhere. Same change in Yahdle StatsPage.jsx and Snibble StatsModal.jsx as well.
+- **Match row style to Yahdle/Snibble** — rounded pill rows with `bg-rungles-50` / dark equivalent (was bare `divide-y` rows), `space-y-1.5`, added `pts` suffix to scores, "← you" indicator on caller's row.
+- **CACHE_VERSION bumped** rungles-v28 → v29.
+- Verified Month tab now shows `#1 Rae 107 pts` / `#2 Onyi 106 pts` (was 10 rows of Rae+Onyi alternating).
+
 ## Extended leaderboards (c92, 2026-05-19)
 
 Ported the c92 pattern from Yahdle + Snibble. Last of the three SQ games to land.
