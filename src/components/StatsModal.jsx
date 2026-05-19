@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchMyStats, summarizeStats,
   fetchMyMultiplayerStats,
-  fetchSoloLeaderboard, fetchBestRungEver, formatPlayedAt,
+  fetchSoloLeaderboard, formatPlayedAt,
 } from '../lib/statsService.js'
 
 const TIMEFRAMES = [
@@ -216,8 +216,6 @@ function LeaderboardBody({ myUserId, open }) {
   const [activeDate, setActiveDate] = useState(today)
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
-  const [bestRung, setBestRung] = useState(null)
-  const [bestRungErr, setBestRungErr] = useState(null)
 
   // Re-anchor date to today when leaving the Day tab so re-entry doesn't
   // strand the user on a stale past day.
@@ -226,14 +224,6 @@ function LeaderboardBody({ myUserId, open }) {
   }, [timeframe, today])
 
   const queryDate = timeframe === 'day' ? activeDate : today
-
-  // Fetch best-rung-ever once per open (permanent stat, doesn't change
-  // with timeframe).
-  useEffect(() => {
-    if (!open) return
-    setBestRung(null); setBestRungErr(null)
-    fetchBestRungEver().then(setBestRung).catch(e => setBestRungErr(e.message ?? String(e)))
-  }, [open])
 
   // Fetch leaderboard for the active timeframe/date.
   useEffect(() => {
@@ -268,14 +258,14 @@ function LeaderboardBody({ myUserId, open }) {
           onNext={() => !isToday && setActiveDate(addDays(activeDate, 1))}
         />
       ) : (
-        <p className="text-center text-xs text-rungles-500 -mt-1">{WINDOW_LABEL[timeframe]}</p>
+        <p className="text-center text-xs opacity-60 -mt-1">{WINDOW_LABEL[timeframe]}</p>
       )}
 
       {err && <p className="text-sm text-rose-600">Couldn't load leaderboard: {err}</p>}
-      {!err && data == null && <p className="text-sm text-rungles-500 italic">Loading…</p>}
+      {!err && data == null && <p className="italic opacity-70 py-6 text-sm">Loading…</p>}
 
       {!err && data && rows.length === 0 && (
-        <p className="text-sm text-rungles-500 italic">
+        <p className="italic opacity-70 py-6 text-sm text-center">
           {timeframe === 'day'
             ? (isToday ? 'No games yet today — be the first!' : 'No games on this day.')
             : 'No games in this window yet.'}
@@ -289,7 +279,7 @@ function LeaderboardBody({ myUserId, open }) {
           ))}
           {showMyRankRow && (
             <>
-              <li className="pt-2 text-center text-[10px] uppercase tracking-wider text-rungles-500 border-t border-rungles-100 dark:border-rungles-900 mt-2">
+              <li className="pt-2 text-center text-[10px] uppercase tracking-wider opacity-50 border-t border-white/10 mt-2">
                 your rank
               </li>
               <LeaderboardRow
@@ -301,26 +291,6 @@ function LeaderboardBody({ myUserId, open }) {
           )}
         </ol>
       )}
-
-      {bestRungErr && (
-        <p className="text-xs text-rose-600">Couldn't load best rung: {bestRungErr}</p>
-      )}
-      {bestRung && (
-        <div>
-          <h3 className="font-display text-sm text-rungles-700 dark:text-rungles-200 mb-1">
-            🎯 Best single rung ever
-          </h3>
-          <div className="flex items-center justify-between text-sm py-1">
-            <span>
-              <strong className={bestRung.userId === myUserId ? 'text-rungles-700 dark:text-rungles-100 underline' : ''}>
-                {bestRung.username}
-              </strong>
-              <span className="text-rungles-500"> · {bestRung.bestWord}</span>
-            </span>
-            <span className="font-bold text-rungles-700 dark:text-rungles-100">+{bestRung.bestRungScore}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -328,27 +298,21 @@ function LeaderboardBody({ myUserId, open }) {
 function LeaderboardRow({ rank, row, isMe }) {
   return (
     <li className={`flex items-center gap-3 px-3 py-2 rounded-xl ${
-      isMe
-        ? 'bg-rungles-100 dark:bg-rungles-800 ring-1 ring-rungles-300 dark:ring-rungles-600'
-        : 'bg-rungles-50 dark:bg-rungles-900/50'
+      isMe ? 'bg-white/15 ring-1 ring-white/30' : 'bg-white/5'
     }`}>
-      <div className="w-9 text-center font-display text-sm text-rungles-600 dark:text-rungles-300">
-        #{rank}
-      </div>
+      <div className="w-9 text-center font-display text-sm">#{rank}</div>
       <div className="flex-1 min-w-0 truncate text-sm">
-        <span className="font-bold text-rungles-800 dark:text-rungles-100">{row.username ?? '…'}</span>
-        {isMe && <span className="ml-2 text-[10px] font-normal text-rungles-500">← you</span>}
+        <span className="font-bold">{row.username ?? '…'}</span>
+        {isMe && <span className="ml-2 text-[10px] opacity-60">← you</span>}
       </div>
-      <div className="font-display text-sm text-rungles-800 dark:text-rungles-100">
-        {row.totalScore} pts
-      </div>
+      <div className="font-display text-sm">{row.totalScore} pts</div>
     </li>
   )
 }
 
 function SegmentedControl({ options, value, onChange }) {
   return (
-    <div className="flex gap-1 p-1 rounded-xl bg-rungles-50 dark:bg-rungles-900 border border-rungles-100 dark:border-rungles-800">
+    <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
       {options.map(opt => (
         <button
           key={opt.key}
@@ -356,8 +320,8 @@ function SegmentedControl({ options, value, onChange }) {
           onClick={() => onChange(opt.key)}
           className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold transition-colors ${
             value === opt.key
-              ? 'bg-white dark:bg-rungles-800 text-rungles-800 dark:text-rungles-100 ring-1 ring-rungles-300 dark:ring-rungles-700'
-              : 'text-rungles-500 hover:text-rungles-700 dark:hover:text-rungles-200'
+              ? 'bg-white/15 text-white ring-1 ring-white/30'
+              : 'text-white/60 hover:text-white/80'
           }`}
         >
           {opt.label}
@@ -369,16 +333,16 @@ function SegmentedControl({ options, value, onChange }) {
 
 function DateStepper({ isoDate, isToday, onPrev, onNext }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-rungles-50 dark:bg-rungles-900 border border-rungles-100 dark:border-rungles-800">
+    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10">
       <button
         type="button"
         onClick={onPrev}
         aria-label="Previous day"
-        className="w-8 h-8 rounded-lg bg-white dark:bg-rungles-800 text-rungles-700 dark:text-rungles-100 hover:bg-rungles-100 dark:hover:bg-rungles-700"
+        className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 text-white"
       >
         ‹
       </button>
-      <div className="text-sm font-bold text-rungles-800 dark:text-rungles-100 flex items-center gap-2">
+      <div className="text-sm font-bold flex items-center gap-2">
         {formatIso(isoDate)}
         {isToday && (
           <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pink-500 text-white">
@@ -391,7 +355,7 @@ function DateStepper({ isoDate, isToday, onPrev, onNext }) {
         onClick={onNext}
         disabled={isToday}
         aria-label="Next day"
-        className="w-8 h-8 rounded-lg bg-white dark:bg-rungles-800 text-rungles-700 dark:text-rungles-100 hover:bg-rungles-100 dark:hover:bg-rungles-700 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-rungles-800"
+        className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 text-white disabled:opacity-30 disabled:hover:bg-white/5 disabled:cursor-not-allowed"
       >
         ›
       </button>
