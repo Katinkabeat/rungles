@@ -22,6 +22,31 @@ Rungles **shares Wordy's Supabase project** (ref `yyhewndblruwxsrqzart`) instead
 - Future split path: spin up new Supabase project, copy `rg_*` tables and functions, repoint frontend. Clean because of the prefix.
 - Migration plan lives at `rungles/supabase/migration-001-initial.sql` — idempotent (drops `rg_*` first), uses SECURITY DEFINER RPCs for all mutations so the tile bag stays hidden, RLS scopes racks to the owning user.
 
+## Extended leaderboards (c92, 2026-05-19)
+
+Ported the c92 pattern from Yahdle + Snibble. Last of the three SQ games to land.
+
+- **Per-game ranking** (not per-user sums) — each row in the leaderboard is one game; a user can appear multiple times in the top 10. Matches Rungles' existing "hall of fame" UX and the card spec tie-break `total_score DESC, played_at ASC`. Yahdle/Snibble are per-user/per-window sums because their games are once-per-day; Rungles users play many times per day so the per-game framing is more useful.
+- **New RPCs** (additive — old direct-table queries gone from the client but no DB function was dropped):
+  - `rg_solo_leaderboard(p_timeframe, p_date)` — top 10 games in window. Window computed in Halifax tz on `p_date` then converted to timestamptz so the existing `rg_solo_games_score_idx` index is hit.
+  - `rg_solo_my_rank(p_timeframe, p_date)` — caller's BEST game's rank in the window (LIMIT 1 with ORDER BY rk ASC).
+- **Halifax-tz window pattern** (new to this repo, played_at is timestamptz not date): compute Halifax-local start/end dates, then convert each via `::timestamp AT TIME ZONE 'America/Halifax'` to get the timestamptz boundaries.
+- **Migration:** `supabase/migration-014-extended-leaderboards.sql` (no-timestamp convention per [SQ supabase patterns](../../.claude/projects/.../feedback_supabase_patterns.md)). Applied via psql + pooler URL.
+- **statsService.js refactored:**
+  - Removed `fetchLeaderboard()` and `startOfThisWeek()` — server handles windows now.
+  - New `fetchSoloLeaderboard({ timeframe, date })` calls both RPCs in parallel.
+  - New `fetchBestRungEver()` separate from leaderboard so the permanent badge doesn't refetch per timeframe.
+  - RPC returns username directly (server-side join), eliminating the client-side profile fan-out.
+- **StatsModal.jsx rewrite:**
+  - Removed the dual All-time + This Week sections. Single timeframe-aware leaderboard now.
+  - Segmented control: Day / Week / Month / All-time.
+  - Date stepper on Day tab only.
+  - Appended "your best in this window #N" row when caller's best game isn't in top 10.
+  - "🎯 Best single rung ever" badge always shown below the leaderboard regardless of timeframe — preserved per card spec.
+- **CACHE_VERSION bumped** rungles-v27 → v28 (SQ Rungles PWA deploy convention).
+- **Verified locally** at `localhost:8080/rungles/` with test user. Day-today: empty + "be the first" message. Month: 10 games shown, Rae and Onyi each appearing 4-5 times (per-game ranking confirmed). All-time: same shape, similar ordering. Week: empty (no plays this week). Best Rung Ever: Rae · REZONED +28 shown across all tabs. No console errors.
+- Raeban card [c92] all three games shipped.
+
 ## End-of-game discoverability (2026-04-28)
 
 Wordy-parity end-of-game flow added in migration 007:

@@ -76,57 +76,52 @@ export async function fetchMyMultiplayerStats(userId) {
   }
 }
 
-// ── leaderboard ──────────────────────────────────────────────────
-function startOfThisWeek() {
-  const now = new Date()
-  const dow = now.getDay()
-  const daysSinceMon = (dow + 6) % 7
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - daysSinceMon)
-  monday.setHours(0, 0, 0, 0)
-  return monday
+// ── leaderboard (c92: timeframe-aware via RPCs) ──────────────────
+// Fetches the top-10 leaderboard for the requested window, plus the
+// caller's best-game rank if they're outside the top 10. Per-game
+// ranking — a user can appear multiple times in the top 10.
+export async function fetchSoloLeaderboard({ timeframe, date }) {
+  const [lbRes, rankRes] = await Promise.all([
+    supabase.rpc('rg_solo_leaderboard', { p_timeframe: timeframe, p_date: date }),
+    supabase.rpc('rg_solo_my_rank',     { p_timeframe: timeframe, p_date: date }),
+  ])
+  if (lbRes.error)   throw lbRes.error
+  if (rankRes.error) throw rankRes.error
+
+  const rows = (lbRes.data ?? []).map(r => ({
+    userId: r.user_id,
+    username: r.username ?? 'anonymous',
+    totalScore: r.total_score,
+    bestWord: r.best_word,
+    bestRungScore: r.best_rung_score,
+    playedAt: r.played_at,
+  }))
+  const rankRow = Array.isArray(rankRes.data) ? rankRes.data[0] : rankRes.data
+  return { rows, myRank: rankRow ?? null }
 }
 
-export async function fetchLeaderboard() {
-  const weekStart = startOfThisWeek().toISOString()
-  const [allTimeRes, weekRes, bestRungRes] = await Promise.all([
-    supabase
-      .from('rg_solo_games')
-      .select('user_id, total_score, played_at')
-      .order('total_score', { ascending: false })
-      .limit(10),
-    supabase
-      .from('rg_solo_games')
-      .select('user_id, total_score, played_at')
-      .gte('played_at', weekStart)
-      .order('total_score', { ascending: false })
-      .limit(10),
-    supabase
-      .from('rg_solo_games')
-      .select('user_id, best_word, best_rung_score, played_at')
-      .not('best_rung_score', 'is', null)
-      .order('best_rung_score', { ascending: false })
-      .limit(1),
-  ])
+// Permanent all-time "best single rung ever" badge — separate from the
+// windowed leaderboard so it doesn't change per timeframe.
+export async function fetchBestRungEver() {
+  const { data, error } = await supabase
+    .from('rg_solo_games')
+    .select('user_id, best_word, best_rung_score, played_at')
+    .not('best_rung_score', 'is', null)
+    .order('best_rung_score', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = (data ?? [])[0]
+  if (!row) return null
 
-  if (allTimeRes.error) throw allTimeRes.error
-
-  const allTime = allTimeRes.data ?? []
-  const thisWeek = weekRes.data ?? []
-  const bestRung = (bestRungRes.data ?? [])[0] ?? null
-
-  const ids = new Set()
-  allTime.forEach(r => ids.add(r.user_id))
-  thisWeek.forEach(r => ids.add(r.user_id))
-  if (bestRung) ids.add(bestRung.user_id)
-
-  let nameById = {}
-  if (ids.size) {
-    const { data: profiles } = await supabase
-      .from('profiles').select('id, username').in('id', [...ids])
-    nameById = Object.fromEntries((profiles ?? []).map(p => [p.id, p.username]))
+  const { data: prof } = await supabase
+    .from('profiles').select('username').eq('id', row.user_id).maybeSingle()
+  return {
+    userId: row.user_id,
+    username: prof?.username ?? '…',
+    bestWord: row.best_word,
+    bestRungScore: row.best_rung_score,
+    playedAt: row.played_at,
   }
-  return { allTime, thisWeek, bestRung, nameById }
 }
 
 export function formatPlayedAt(iso) {

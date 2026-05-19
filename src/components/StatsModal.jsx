@@ -1,9 +1,50 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchMyStats, summarizeStats,
   fetchMyMultiplayerStats,
-  fetchLeaderboard, formatPlayedAt,
+  fetchSoloLeaderboard, fetchBestRungEver, formatPlayedAt,
 } from '../lib/statsService.js'
+
+const TIMEFRAMES = [
+  { key: 'day',   label: 'Day'      },
+  { key: 'week',  label: 'Week'     },
+  { key: 'month', label: 'Month'    },
+  { key: 'all',   label: 'All-time' },
+]
+
+const WINDOW_LABEL = {
+  week:  'This week (Mon–Sun)',
+  month: 'This month',
+  all:   'All-time, since launch',
+}
+
+// UTC formatter — iso date strings represent calendar dates, not
+// instants. Without timeZone: 'UTC' an Atlantic client renders the
+// previous day.
+const DATE_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+})
+
+function addDays(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
+
+function formatIso(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return DATE_FMT.format(new Date(Date.UTC(y, m - 1, d)))
+}
+
+function todayInHalifax() {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Halifax',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  return fmt.format(new Date())
+}
 
 export default function StatsModal({ open, myUserId, onClose }) {
   const ref = useRef(null)
@@ -12,8 +53,6 @@ export default function StatsModal({ open, myUserId, onClose }) {
   const [meErr, setMeErr] = useState(null)
   const [mpStats, setMpStats] = useState(null)
   const [mpErr, setMpErr] = useState(null)
-  const [board, setBoard] = useState(null)
-  const [boardErr, setBoardErr] = useState(null)
 
   useEffect(() => {
     const dlg = ref.current
@@ -22,15 +61,12 @@ export default function StatsModal({ open, myUserId, onClose }) {
     if (!open && dlg.open) dlg.close()
   }, [open])
 
-  // Lazy-load when first opened, refresh on each open.
   useEffect(() => {
     if (!open || !myUserId) return
     setMeRows(null); setMeErr(null)
     setMpStats(null); setMpErr(null)
-    setBoard(null); setBoardErr(null)
     fetchMyStats(myUserId).then(setMeRows).catch(e => setMeErr(e.message ?? String(e)))
     fetchMyMultiplayerStats(myUserId).then(setMpStats).catch(e => setMpErr(e.message ?? String(e)))
-    fetchLeaderboard().then(setBoard).catch(e => setBoardErr(e.message ?? String(e)))
   }, [open, myUserId])
 
   return (
@@ -59,7 +95,7 @@ export default function StatsModal({ open, myUserId, onClose }) {
         </div>
 
         {tab === 'me' && <MyStatsBody rows={meRows} err={meErr} mpStats={mpStats} mpErr={mpErr} />}
-        {tab === 'board' && <LeaderboardBody board={board} err={boardErr} myUserId={myUserId} />}
+        {tab === 'board' && <LeaderboardBody myUserId={myUserId} open={open} />}
       </div>
     </dialog>
   )
@@ -174,22 +210,101 @@ function MyStatsBody({ rows, err, mpStats, mpErr }) {
   )
 }
 
-function LeaderboardBody({ board, err, myUserId }) {
-  if (err) return <p className="text-sm text-rose-600">Couldn't load leaderboard: {err}</p>
-  if (board == null) return <p className="text-sm text-rungles-500 italic">Loading…</p>
-  const { allTime, thisWeek, bestRung, nameById } = board
-  if (allTime.length === 0) return <p className="text-sm text-rungles-500 italic">No games played yet.</p>
+function LeaderboardBody({ myUserId, open }) {
+  const today = useMemo(() => todayInHalifax(), [])
+  const [timeframe, setTimeframe] = useState('day')
+  const [activeDate, setActiveDate] = useState(today)
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+  const [bestRung, setBestRung] = useState(null)
+  const [bestRungErr, setBestRungErr] = useState(null)
+
+  // Re-anchor date to today when leaving the Day tab so re-entry doesn't
+  // strand the user on a stale past day.
+  useEffect(() => {
+    if (timeframe !== 'day') setActiveDate(today)
+  }, [timeframe, today])
+
+  const queryDate = timeframe === 'day' ? activeDate : today
+
+  // Fetch best-rung-ever once per open (permanent stat, doesn't change
+  // with timeframe).
+  useEffect(() => {
+    if (!open) return
+    setBestRung(null); setBestRungErr(null)
+    fetchBestRungEver().then(setBestRung).catch(e => setBestRungErr(e.message ?? String(e)))
+  }, [open])
+
+  // Fetch leaderboard for the active timeframe/date.
+  useEffect(() => {
+    if (!open) return
+    let active = true
+    setData(null); setErr(null)
+    fetchSoloLeaderboard({ timeframe, date: queryDate })
+      .then(r => { if (active) setData(r) })
+      .catch(e => { if (active) setErr(e.message ?? String(e)) })
+    return () => { active = false }
+  }, [open, timeframe, queryDate])
+
+  const isToday = activeDate === today
+  const rows = data?.rows ?? []
+  const myRank = data?.myRank ?? null
+  const youInTop = rows.some(r => r.userId === myUserId)
+  const showMyRankRow = !youInTop && myRank && myRank.rank > 10
 
   return (
     <div className="space-y-4">
-      <Section title="🏆 All-time top 10" rows={allTime} nameById={nameById} myUserId={myUserId} />
-      <Section
-        title="📅 This week"
-        rows={thisWeek}
-        nameById={nameById}
-        myUserId={myUserId}
-        emptyMessage="No games this week yet — be the first!"
+      <SegmentedControl
+        options={TIMEFRAMES}
+        value={timeframe}
+        onChange={setTimeframe}
       />
+
+      {timeframe === 'day' ? (
+        <DateStepper
+          isoDate={activeDate}
+          isToday={isToday}
+          onPrev={() => setActiveDate(addDays(activeDate, -1))}
+          onNext={() => !isToday && setActiveDate(addDays(activeDate, 1))}
+        />
+      ) : (
+        <p className="text-center text-xs text-rungles-500 -mt-1">{WINDOW_LABEL[timeframe]}</p>
+      )}
+
+      {err && <p className="text-sm text-rose-600">Couldn't load leaderboard: {err}</p>}
+      {!err && data == null && <p className="text-sm text-rungles-500 italic">Loading…</p>}
+
+      {!err && data && rows.length === 0 && (
+        <p className="text-sm text-rungles-500 italic">
+          {timeframe === 'day'
+            ? (isToday ? 'No games yet today — be the first!' : 'No games on this day.')
+            : 'No games in this window yet.'}
+        </p>
+      )}
+
+      {!err && data && rows.length > 0 && (
+        <div className="divide-y divide-rungles-100 dark:divide-rungles-900">
+          {rows.map((r, i) => (
+            <LeaderboardRow key={i} rank={i + 1} row={r} isMe={r.userId === myUserId} />
+          ))}
+          {showMyRankRow && (
+            <>
+              <div className="pt-2 text-center text-[10px] uppercase tracking-wider text-rungles-500 border-t border-rungles-100 dark:border-rungles-900 mt-2">
+                your best in this window
+              </div>
+              <LeaderboardRow
+                rank={myRank.rank}
+                row={{ userId: myUserId, username: 'You', totalScore: myRank.score }}
+                isMe
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {bestRungErr && (
+        <p className="text-xs text-rose-600">Couldn't load best rung: {bestRungErr}</p>
+      )}
       {bestRung && (
         <div>
           <h3 className="font-display text-sm text-rungles-700 dark:text-rungles-200 mb-1">
@@ -197,12 +312,12 @@ function LeaderboardBody({ board, err, myUserId }) {
           </h3>
           <div className="flex items-center justify-between text-sm py-1">
             <span>
-              <strong className={bestRung.user_id === myUserId ? 'text-rungles-700 dark:text-rungles-100 underline' : ''}>
-                {nameById[bestRung.user_id] ?? '…'}
+              <strong className={bestRung.userId === myUserId ? 'text-rungles-700 dark:text-rungles-100 underline' : ''}>
+                {bestRung.username}
               </strong>
-              <span className="text-rungles-500"> · {bestRung.best_word}</span>
+              <span className="text-rungles-500"> · {bestRung.bestWord}</span>
             </span>
-            <span className="font-bold text-rungles-700 dark:text-rungles-100">+{bestRung.best_rung_score}</span>
+            <span className="font-bold text-rungles-700 dark:text-rungles-100">+{bestRung.bestRungScore}</span>
           </div>
         </div>
       )}
@@ -210,30 +325,69 @@ function LeaderboardBody({ board, err, myUserId }) {
   )
 }
 
-function Section({ title, rows, nameById, myUserId, emptyMessage }) {
+function LeaderboardRow({ rank, row, isMe }) {
   return (
-    <div>
-      <h3 className="font-display text-sm text-rungles-700 dark:text-rungles-200 mb-1">{title}</h3>
-      {rows.length === 0 ? (
-        <p className="text-xs text-rungles-500 italic">{emptyMessage ?? 'No games yet.'}</p>
-      ) : (
-        <div className="divide-y divide-rungles-100 dark:divide-rungles-900">
-          {rows.map((r, i) => {
-            const isMe = r.user_id === myUserId
-            return (
-              <div key={i} className="flex items-center justify-between text-sm py-1.5">
-                <span>
-                  <span className="text-rungles-500 mr-1">{i + 1}.</span>
-                  <span className={isMe ? 'font-bold text-rungles-700 dark:text-rungles-100 underline' : 'text-rungles-700 dark:text-rungles-200'}>
-                    {nameById[r.user_id] ?? '…'}
-                  </span>
-                </span>
-                <span className="font-bold text-rungles-700 dark:text-rungles-100">{r.total_score}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+    <div className="flex items-center justify-between text-sm py-1.5">
+      <span>
+        <span className="text-rungles-500 mr-1">{rank}.</span>
+        <span className={isMe ? 'font-bold text-rungles-700 dark:text-rungles-100 underline' : 'text-rungles-700 dark:text-rungles-200'}>
+          {row.username ?? '…'}
+        </span>
+      </span>
+      <span className="font-bold text-rungles-700 dark:text-rungles-100">{row.totalScore}</span>
+    </div>
+  )
+}
+
+function SegmentedControl({ options, value, onChange }) {
+  return (
+    <div className="flex gap-1 p-1 rounded-xl bg-rungles-50 dark:bg-rungles-900 border border-rungles-100 dark:border-rungles-800">
+      {options.map(opt => (
+        <button
+          key={opt.key}
+          type="button"
+          onClick={() => onChange(opt.key)}
+          className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            value === opt.key
+              ? 'bg-white dark:bg-rungles-800 text-rungles-800 dark:text-rungles-100 ring-1 ring-rungles-300 dark:ring-rungles-700'
+              : 'text-rungles-500 hover:text-rungles-700 dark:hover:text-rungles-200'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function DateStepper({ isoDate, isToday, onPrev, onNext }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-rungles-50 dark:bg-rungles-900 border border-rungles-100 dark:border-rungles-800">
+      <button
+        type="button"
+        onClick={onPrev}
+        aria-label="Previous day"
+        className="w-8 h-8 rounded-lg bg-white dark:bg-rungles-800 text-rungles-700 dark:text-rungles-100 hover:bg-rungles-100 dark:hover:bg-rungles-700"
+      >
+        ‹
+      </button>
+      <div className="text-sm font-bold text-rungles-800 dark:text-rungles-100 flex items-center gap-2">
+        {formatIso(isoDate)}
+        {isToday && (
+          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pink-500 text-white">
+            Today
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={isToday}
+        aria-label="Next day"
+        className="w-8 h-8 rounded-lg bg-white dark:bg-rungles-800 text-rungles-700 dark:text-rungles-100 hover:bg-rungles-100 dark:hover:bg-rungles-700 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-rungles-800"
+      >
+        ›
+      </button>
     </div>
   )
 }
