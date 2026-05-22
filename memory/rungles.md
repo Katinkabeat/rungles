@@ -334,3 +334,20 @@ Cloudflare with code 1010).
 
 Visual end-to-end confirmation deferred — needs a fresh two-player game
 between Rae and Onyi to see new rungs render with the corrected colors.
+
+## 2026-05-21 — Blocked-user filtering in invite friend list (c124)
+
+`useFriends` now fetches `user_blocks` (RLS exposes only rows where
+`blocker = auth.uid()`) and filters those ids out before loading profiles, so
+people you've blocked no longer show in the Create Game invite dropdown.
+Game-side only, no DB change — mirrors the hub Friends view pattern. This hook
+is byte-identical to Wordy's; same edit shipped to both.
+
+Root cause: `block_user` only inserts into `user_blocks`; it does NOT remove the
+friendship, so blocked friends leaked into the friends-only dropdown. Scope: only
+removes people *you* blocked; the reverse direction is server-side and out of
+scope (RLS won't expose who blocked you).
+
+Verified at the data layer in psql (simulated authenticated session, temp block
+inside a rolled-back transaction). Build clean. NOT exercised in-browser
+(Turnstile login, no test creds).
