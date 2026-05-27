@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../contexts/ThemeContext.jsx'
 import { useGameActions } from '../contexts/GameActionsContext.jsx'
 import { supabase } from '../lib/supabase.js'
+import { SQReportPlayer } from '../../../rae-side-quest/packages/sq-ui/index.js'
 import RulesModal from './RulesModal.jsx'
 
 export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onToggleAdmin }) {
@@ -81,6 +82,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
               {lobbyTab === 'admin' ? '← Lobby' : '🔒 Admin panel'}
             </button>
           )}
+          <SQReportPlayer supabase={supabase} game="rungles" />
           <button
             type="button"
             role="menuitem"
