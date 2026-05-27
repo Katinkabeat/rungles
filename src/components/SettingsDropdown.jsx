@@ -82,7 +82,20 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
               {lobbyTab === 'admin' ? '← Lobby' : '🔒 Admin panel'}
             </button>
           )}
-          <SQReportPlayer supabase={supabase} game="rungles" />
+          <SQReportPlayer
+            supabase={supabase}
+            game="rungles"
+            renderTrigger={({ open }) => (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={open}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
+              >
+                🚩 Report a player
+              </button>
+            )}
+          />
           <button
             type="button"
             role="menuitem"
