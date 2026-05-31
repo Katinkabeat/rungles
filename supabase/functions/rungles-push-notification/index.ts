@@ -120,6 +120,30 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
     }
 
+    // ── invite_declined (from rg_decline_invite RPC) ───────────
+    // Rungles invites are 1v1, so a decline always closes the game.
+    // Gated by the creator's 'invite_declined' pref (default OFF).
+    if (payload.type === 'invite_declined') {
+      const { game_id, creator_id, decliner_id } = payload
+      if (!creator_id) {
+        return new Response(JSON.stringify({ skipped: 'no creator' }), { status: 200, headers: corsHeaders })
+      }
+      let declinerName = 'A friend'
+      if (decliner_id) {
+        const { data: dp } = await supabase
+          .from('profiles').select('username').eq('id', decliner_id).maybeSingle()
+        if (dp?.username) declinerName = dp.username
+      }
+      const result = await sendIfOptedIn(supabase, creator_id, 'rungles', 'invite_declined', {
+        title: 'Rungles',
+        body: `${declinerName} couldn’t join this round. Tap to start another. 🪜`,
+        tag: `rungles-declined-${game_id}`,
+        url: `/rungles/`,
+        icon: '/rungles/favicon.svg',
+      })
+      return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
+    }
+
     // ── opponent_joined: rg_players AFTER INSERT trigger ────────
     if (payload.type === 'opponent_joined') {
       const { game_id, joiner_id, creator_id } = payload
