@@ -351,3 +351,7 @@ scope (RLS won't expose who blocked you).
 Verified at the data layer in psql (simulated authenticated session, temp block
 inside a rolled-back transaction). Build clean. NOT exercised in-browser
 (Turnstile login, no test creds).
+
+## 2026-05-31 — Decline-invite + opt-in decline-notify (c167/c172)
+
+Added a decline (x) button to incoming invites + `rg_decline_invite` SECURITY DEFINER RPC (supabase/migration-016-decline-invite.sql). Rungles invites are 1v1, so a decline always closes the game (close_reason='Invite declined'). Phase 2 (migration-017-decline-notify.sql): the RPC net.http_post's an 'invite_declined' push to rungles-push-notification edge fn, gated by the new per-game 'invite_declined' notif topic (default OFF, opt-in in hub NotificationsPanel). Edge fn handles the type via sendIfOptedIn. Verified via rolled-back impersonation test + live smoke test on deployed fn. Authed device-side push NOT E2E'd — Rae to confirm.
