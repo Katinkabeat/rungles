@@ -200,6 +200,17 @@ export async function cancelGame(gameId) {
   if (error) throw error
 }
 
+/**
+ * Decline a 1v1 invite. Server enforces the caller is the invited user
+ * of a 'waiting' game, then closes it with close_reason='Invite declined'.
+ */
+export async function declineInvite(gameId) {
+  const { error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_decline_invite', { p_game_id: gameId })
+  )
+  if (error) throw error
+}
+
 export async function sendNudge(gameId, nudgerName) {
   const { error: rpcErr } = await rpcWithRetry(() =>
     supabase.rpc('rg_nudge', { p_game_id: gameId })

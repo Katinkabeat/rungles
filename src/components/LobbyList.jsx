@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import LobbyRow from './LobbyRow.jsx'
 import {
-  fetchLobby, subscribeLobby, joinGame, sendNudge, canNudgeGame, cancelGame,
+  fetchLobby, subscribeLobby, joinGame, sendNudge, canNudgeGame, cancelGame, declineInvite,
 } from '../lib/lobbyService.js'
 import { supabase } from '../lib/supabase.js'
 
@@ -19,6 +19,7 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [cancellingId, setCancellingId] = useState(null)
+  const [decliningId, setDecliningId] = useState(null)
   const recentlyNudgedRef = useRef(new Set())
   const [, forceTick] = useState(0)
 
@@ -68,6 +69,21 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
       toast.error(`Couldn't cancel: ${e.message ?? e}`)
     } finally {
       setCancellingId(null)
+      refresh()
+    }
+  }
+
+  async function handleDecline(gameId) {
+    if (decliningId) return
+    if (!confirm('Decline this invite?')) return
+    setDecliningId(gameId)
+    try {
+      await declineInvite(gameId)
+      toast.success('Invite declined.')
+    } catch (e) {
+      toast.error(`Couldn't decline: ${e.message ?? e}`)
+    } finally {
+      setDecliningId(null)
       refresh()
     }
   }
@@ -128,6 +144,8 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
           onNudge={handleNudge}
           onJoin={handleJoin}
           onResume={handleResume}
+          onDecline={() => handleDecline(g.id)}
+          declineDisabled={decliningId === g.id}
           isInviteToMe
         />
       ))}

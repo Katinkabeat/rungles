@@ -11,6 +11,8 @@ export default function LobbyRow({
   onResume,
   onCancel,
   cancelDisabled,
+  onDecline,
+  declineDisabled,
   isInviteToMe,
 }) {
   const players = (game.rg_players ?? []).slice().sort((a, b) => a.player_idx - b.player_idx)
@@ -96,6 +98,18 @@ export default function LobbyRow({
             className="w-7 h-7 grid place-items-center rounded-full text-rungles-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 transition-colors"
             aria-label="Cancel game"
             title="Cancel game"
+          >
+            ✕
+          </button>
+        )}
+        {onDecline && (
+          <button
+            type="button"
+            onClick={onDecline}
+            disabled={declineDisabled}
+            className="w-7 h-7 grid place-items-center rounded-full text-rungles-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-40 transition-colors"
+            aria-label="Decline invite"
+            title="Decline invite"
           >
             ✕
           </button>
