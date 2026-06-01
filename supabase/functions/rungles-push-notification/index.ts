@@ -190,6 +190,24 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
     }
 
+    // ── game_closed: rg_expire_stale_games closed a never-joined game ─
+    // 1v1 invite expired before the opponent joined. One recipient: the
+    // creator. (c151 baseline)
+    if (payload.type === 'game_closed') {
+      const { record } = payload
+      if (!record?.id || !record.created_by) {
+        return new Response(JSON.stringify({ skipped: 'missing fields' }), { status: 200, headers: corsHeaders })
+      }
+      const result = await sendIfOptedIn(supabase, record.created_by, 'rungles', 'game_closed', {
+        title: 'Rungles — match closed',
+        body: 'Your match closed because no one else joined in time. 🪜',
+        tag: `rungles-closed-${record.id}`,
+        url: `/rungles/`,
+        icon: '/rungles/favicon.svg',
+      })
+      return new Response(JSON.stringify(result), { status: 200, headers: corsHeaders })
+    }
+
     // ── nudge (from client) ─────────────────────────────────────
     // Client has already updated rg_games.last_nudged_at via the rg_nudge
     // RPC (which enforces cooldown + caller-in-game). This branch just

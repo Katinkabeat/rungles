@@ -8,14 +8,18 @@ export default function LobbyResultsBanner({ results, onView }) {
   return (
     <div className="space-y-2">
       {results.map(r => {
-        const headline = r.isAdminClosed
-          ? '🛑 Game closed by admin'
-          : r.isForfeit
-            ? (r.gaveUp ? '🏳️ You gave up' : `🏳️ ${r.opponentName} gave up`)
-            : r.winnerUserId
-              ? (r.isWinner ? '🏆 You won!' : `🏆 ${r.winnerName} won`)
-              : "🤝 It's a tie!"
-        const subtext = `You ${r.myScore} · ${r.opponentName} ${r.opponentScore}`
+        const headline = r.isExpired
+          ? '🚫 Game closed'
+          : r.isAdminClosed
+            ? '🛑 Game closed by admin'
+            : r.isForfeit
+              ? (r.gaveUp ? '🏳️ You gave up' : `🏳️ ${r.opponentName} gave up`)
+              : r.winnerUserId
+                ? (r.isWinner ? '🏆 You won!' : `🏆 ${r.winnerName} won`)
+                : "🤝 It's a tie!"
+        const subtext = r.isExpired
+          ? 'Invite expired — this game closed because no one else joined.'
+          : `You ${r.myScore} · ${r.opponentName} ${r.opponentScore}`
         return (
           <div
             key={r.gameId}

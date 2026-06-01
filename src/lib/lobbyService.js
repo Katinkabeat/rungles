@@ -88,10 +88,10 @@ export async function fetchUnseenResults(myUserId) {
   const { data: gms, error } = await supabase
     .from('rg_games')
     .select(`
-      id, status, finished_at, winner_player_idx, forfeit_user_id, closed_by_admin,
+      id, status, finished_at, winner_player_idx, forfeit_user_id, closed_by_admin, close_reason,
       rg_players!inner ( user_id, player_idx, score )
     `)
-    .eq('status', 'complete')
+    .in('status', ['complete', 'expired'])
     .eq('rg_players.user_id', myUserId)
     .order('finished_at', { ascending: false })
     .limit(10)
@@ -132,13 +132,17 @@ export async function fetchUnseenResults(myUserId) {
     const isForfeit = !!game?.forfeit_user_id
     const gaveUp = isForfeit && game.forfeit_user_id === myUserId
     const isAdminClosed = !!game?.closed_by_admin
+    // Invite expired before the opponent joined (c151). Surfaced here
+    // instead of silently vanishing; never started, so no scores.
+    const isExpired = game?.status === 'expired' && game?.close_reason === 'no_other_players'
     return {
       gameId: r.game_id,
       finishedAt: game?.finished_at,
-      isWinner: !isAdminClosed && winner?.user_id === myUserId,
+      isWinner: !isAdminClosed && !isExpired && winner?.user_id === myUserId,
       isForfeit,
       gaveUp,
       isAdminClosed,
+      isExpired,
       winnerUserId: isAdminClosed ? null : winner?.user_id,
       winnerName: isAdminClosed ? null : (usernameById[winner?.user_id] ?? '?'),
       opponentName: usernameById[opponent?.user_id] ?? '?',
