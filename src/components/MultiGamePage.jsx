@@ -388,6 +388,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   // Game-specific cog rows (Claim win / Give up), injected into the shared
   // settings dropdown so they're identical across SQ games. Claim is shown
   // greyed while it's the opponent's turn and becomes active after 7 days idle.
+  const isComplete = game?.status === 'complete'
   const cogGameRows = (game && game.status === 'active' && !isComplete)
     ? (close) => (
         <>
@@ -470,7 +471,6 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   const lastWho = lastRung
     ? (lastRung.player_user_id === myUserId ? 'You' : (opponent?.username ?? 'Opponent'))
     : null
-  const isComplete = game?.status === 'complete'
 
   return (
     <SQBoardShell
