@@ -90,6 +90,17 @@ export async function giveUpMatch(gameId) {
   if (error) throw error
 }
 
+// Claim the win when it's been the opponent's turn for 7+ days (c153).
+// Server enforces: caller is a player, it's NOT their turn, and
+// rg_games.turn_started_at is older than 7 days. The stalled opponent is
+// recorded as the forfeiter; the caller wins.
+export async function claimInactiveWin(gameId) {
+  const { error } = await rpcWithRetry(() =>
+    supabase.rpc('rg_claim_inactive_win', { p_game_id: gameId })
+  )
+  if (error) throw error
+}
+
 // Game-status subscription used by the waiting room (waiting -> active).
 export function subscribeGameStatus(gameId, onUpdate) {
   return supabase

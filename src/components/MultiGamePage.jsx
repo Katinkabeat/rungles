@@ -9,7 +9,7 @@ import MultiHistoryModal from './MultiHistoryModal.jsx'
 import MultiEndGameModal from './MultiEndGameModal.jsx'
 import {
   loadMatch, fetchPremium, refreshRack,
-  submitRung, skipTurn, giveUpMatch,
+  submitRung, skipTurn, giveUpMatch, claimInactiveWin,
   subscribeMatch, subscribeGameStatus, unsubscribe,
 } from '../lib/matchService.js'
 import { joinGame as joinGameRpc } from '../lib/lobbyService.js'
@@ -226,6 +226,15 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   const myTurn = !!game && game.status === 'active' && me && game.current_player_idx === me.playerIdx
   const playable = myTurn && !submitting
 
+  // Claim the win when the opponent has been sitting on their turn for 7+
+  // days (c153). turn_started_at is the inactivity clock (shared with nudge).
+  const canClaim = !!(
+    game && game.status === 'active' && me &&
+    game.current_player_idx !== me.playerIdx &&
+    game.turn_started_at &&
+    Date.now() - new Date(game.turn_started_at).getTime() > 7 * 24 * 60 * 60 * 1000
+  )
+
   const carriedLetters = (() => {
     if (rungs.length === 0) return (game?.seed_word ?? '').split('')
     return rungs[rungs.length - 1].word.split('')
@@ -356,6 +365,17 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
     }
   }
 
+  function doClaim() {
+    if (submitting || !canClaim) return
+    if (!window.confirm('Claim the win? Your opponent has been inactive for 7+ days.')) return
+    setSubmitting(true)
+    setStatus({ text: 'Claiming…', tone: 'ok' })
+    claimInactiveWin(gameId)
+      .then(() => setStatus({ text: '🏆 Game claimed.', tone: 'ok' }))
+      .catch(e => setStatus({ text: e.message ?? String(e), tone: 'bad' }))
+      .finally(() => setSubmitting(false))
+  }
+
   function doGiveUp() {
     if (!game || game.status !== 'active' || submitting) return
     if (!giveUpArmed) {
@@ -462,6 +482,18 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
             <span className="text-rungles-500">Waiting for {opponent?.username ?? 'opponent'}…</span>
           )}
         </div>
+        {/* Claim-inactive entry (c153) — lives in this always-visible status
+            card so it's reachable on mobile without scrolling the board. */}
+        {canClaim && (
+          <button
+            type="button"
+            onClick={doClaim}
+            disabled={submitting}
+            className="mt-1 mx-auto block text-xs font-bold text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-500/50 rounded-full px-3 py-1 hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-50"
+          >
+            🏆 Claim win (opponent inactive 7+ days)
+          </button>
+        )}
       </section>
 
       {status.text && (
