@@ -10,6 +10,13 @@ Rungles is a word game (Scrabble tile management + Wordle daily/shareable feel).
 - **Live:** `katinkabeat.github.io/rungles/`
 - **Supabase project ref:** `yyhewndblruwxsrqzart` (shared with Wordy and SQ)
 
+## Session: June 7, 2026 — How-to: inactive-player rules documented
+
+Added a "When your opponent goes quiet" `<Section>` to the bottom of `RulesModal.jsx`:
+🔔 nudge on the opponent's lobby chip after 12h idle; claim-win from the settings
+cog ⚙ after 7 days idle. Pure copy, no logic change. Committed + pushed. Part of a
+4-game sweep (Raeban c185) documenting the shared inactive-player rules.
+
 ## Supabase sharing decision
 
 Rungles **shares Wordy's Supabase project** (ref `yyhewndblruwxsrqzart`) instead of having its own. The reason: testers don't need to sign up for a second account — they reuse their existing Wordy `profiles` row. Will split into a separate Supabase project before going public.
