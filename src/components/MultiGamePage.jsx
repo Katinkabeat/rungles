@@ -386,30 +386,29 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   }
 
   // Game-specific cog rows (Claim win / Give up), injected into the shared
-  // settings dropdown so they're identical across SQ games. Claim is shown
-  // greyed while it's the opponent's turn and becomes active after 7 days idle.
+  // settings dropdown so they're identical across SQ games. Claim is ALWAYS
+  // shown (so it's consistently discoverable) and greyed out unless actually
+  // claimable — opponent's turn, idle 7+ days.
   const isComplete = game?.status === 'complete'
   const cogGameRows = (game && game.status === 'active' && !isComplete)
     ? (close) => (
         <>
-          {!myTurn && (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={!canClaim || submitting}
-              onClick={canClaim ? () => { close(); doClaim() } : undefined}
-              title={canClaim
-                ? 'Claim the win — opponent inactive 7+ days'
-                : 'Available once your opponent has been inactive for 7 days'}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold ${
-                canClaim
-                  ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30'
-                  : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              🏆 Claim win (opponent inactive)
-            </button>
-          )}
+          <button
+            type="button"
+            role="menuitem"
+            disabled={!canClaim || submitting}
+            onClick={canClaim ? () => { close(); doClaim() } : undefined}
+            title={canClaim
+              ? 'Claim the win — opponent inactive 7+ days'
+              : 'Available once your opponent has been inactive for 7 days'}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold ${
+              canClaim
+                ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30'
+                : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            🏆 Claim win (opponent inactive)
+          </button>
           <button
             type="button"
             role="menuitem"
