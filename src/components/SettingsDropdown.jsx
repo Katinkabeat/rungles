@@ -5,7 +5,10 @@ import { supabase } from '../lib/supabase.js'
 import { SQReportPlayer } from '../../../rae-side-quest/packages/sq-ui/index.js'
 import RulesModal from './RulesModal.jsx'
 
-export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onToggleAdmin }) {
+// `gameRows` — optional render-prop `(close) => ReactNode` for game-specific
+// rows (Claim win / Give up on the board). Called with a function that closes
+// the menu, so injected rows can dismiss it after acting.
+export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onToggleAdmin, gameRows = null }) {
   const ref = useRef(null)
   const { isDark, toggle } = useTheme()
   const { hintAction } = useGameActions()
@@ -72,6 +75,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
             <span>{isDark ? '🌙 Dark' : '☀️ Light'}</span>
             <span className="text-xs text-rungles-500">tap to switch</span>
           </button>
+          {gameRows && gameRows(onClose)}
           {isAdmin && onToggleAdmin && (
             <button
               type="button"

@@ -69,8 +69,6 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   const [pendingBlank, setPendingBlank] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [endgameOpen, setEndgameOpen] = useState(false)
-  const [giveUpArmed, setGiveUpArmed] = useState(false)
-  const giveUpTimer = useRef(null)
   const wasComplete = useRef(false) // track status transitions
   const [autoJoining, setAutoJoining] = useState(false)
   const autoJoinAttemptedRef = useRef(false)
@@ -376,20 +374,52 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
       .finally(() => setSubmitting(false))
   }
 
+  // Give up now lives in the cog menu (c153 revision); a menu row can't do the
+  // two-tap arm pattern cleanly, so confirm with a dialog instead.
   function doGiveUp() {
     if (!game || game.status !== 'active' || submitting) return
-    if (!giveUpArmed) {
-      setGiveUpArmed(true)
-      giveUpTimer.current = setTimeout(() => setGiveUpArmed(false), 2500)
-      return
-    }
-    clearTimeout(giveUpTimer.current)
-    setGiveUpArmed(false)
+    if (!window.confirm('Forfeit this game? You’ll take a loss.')) return
     setSubmitting(true)
     giveUpMatch(gameId)
       .catch(e => setStatus({ text: e.message ?? String(e), tone: 'bad' }))
       .finally(() => setSubmitting(false))
   }
+
+  // Game-specific cog rows (Claim win / Give up), injected into the shared
+  // settings dropdown so they're identical across SQ games. Claim is shown
+  // greyed while it's the opponent's turn and becomes active after 7 days idle.
+  const cogGameRows = (game && game.status === 'active' && !isComplete)
+    ? (close) => (
+        <>
+          {!myTurn && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={!canClaim || submitting}
+              onClick={canClaim ? () => { close(); doClaim() } : undefined}
+              title={canClaim
+                ? 'Claim the win — opponent inactive 7+ days'
+                : 'Available once your opponent has been inactive for 7 days'}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold ${
+                canClaim
+                  ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30'
+                  : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              🏆 Claim win (opponent inactive)
+            </button>
+          )}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { close(); doGiveUp() }}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+          >
+            🏳️ Give up
+          </button>
+        </>
+      )
+    : null
 
   // ── render ──────────────────────────────────────────────────
   // Helper: shell wrapper for transient states (loading / error / waiting)
@@ -445,7 +475,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
   return (
     <SQBoardShell
       width="narrow"
-      header={<RunglesHeader profile={profile} onOpenStats={onOpenStats} />}
+      header={<RunglesHeader profile={profile} onOpenStats={onOpenStats} gameRows={cogGameRows} />}
       subHeader={
         <SQBoardHeader
           backLabel="← Lobby"
@@ -482,18 +512,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
             <span className="text-rungles-500">Waiting for {opponent?.username ?? 'opponent'}…</span>
           )}
         </div>
-        {/* Claim-inactive entry (c153) — lives in this always-visible status
-            card so it's reachable on mobile without scrolling the board. */}
-        {canClaim && (
-          <button
-            type="button"
-            onClick={doClaim}
-            disabled={submitting}
-            className="mt-1 mx-auto block text-xs font-bold text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-500/50 rounded-full px-3 py-1 hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-50"
-          >
-            🏆 Claim win (opponent inactive 7+ days)
-          </button>
-        )}
+        {/* Claim win + Give up now live in the cog menu (c153 revision). */}
       </section>
 
       {status.text && (
@@ -585,14 +604,7 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
             <ActionButton emoji="🔀" label="Shuffle" onClick={handleShuffle} variant="secondary" />
             <ActionButton emoji="⏩" label="Skip" onClick={doSkip} variant="secondary" disabled={!playable} />
           </div>
-          <ActionButton
-            emoji="🏳️"
-            label={giveUpArmed ? 'Tap again to confirm' : 'Give Up'}
-            onClick={doGiveUp}
-            variant="danger"
-            disabled={submitting}
-            fullWidth
-          />
+          {/* Give Up moved to the cog menu (c153 revision). */}
         </section>
       )}
 
