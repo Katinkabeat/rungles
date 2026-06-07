@@ -105,6 +105,13 @@ export default function RulesModal({ open, onClose }) {
           </ul>
         </Section>
 
+        <Section title="When your opponent goes quiet">
+          <ul>
+            <li>Once it's been your opponent's turn for <strong>12 hours</strong>, a 🔔 appears on their chip in the lobby. Tap it to send a reminder (plus a push, if they have them on).</li>
+            <li>If they stay inactive for <strong>7 days</strong>, you can claim the win from the settings cog ⚙.</li>
+          </ul>
+        </Section>
+
         <button type="button" className="btn-primary w-full mt-2" onClick={onClose}>
           Got it
         </button>
