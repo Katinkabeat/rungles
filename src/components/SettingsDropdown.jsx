@@ -43,7 +43,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
   return (
     <>
       {open && (
-        <div ref={ref} role="menu" className="settings-dropdown card">
+        <div ref={ref} role="menu" className="settings-dropdown card right-2 top-12 mt-0">
           {/* Canonical SQ order: Theme → How to play → Admin → game rows → Report → Log out */}
           <SQSettingsRow
             label="Theme"
@@ -58,7 +58,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
           {isAdmin && onToggleAdmin && (
             <SQSettingsRow
               label="Admin panel"
-              control={lobbyTab === 'admin' ? '← Lobby' : 'Open'}
+              control={lobbyTab === 'admin' ? '← Lobby' : '🔐 Open'}
               onClick={() => { onClose(); onToggleAdmin() }}
             />
           )}
