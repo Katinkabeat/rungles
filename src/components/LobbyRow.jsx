@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react'
-import { timeAgo } from '../lib/timeAgo.js'
+import { timeAgo } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
 export default function LobbyRow({
   game,
