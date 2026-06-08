@@ -48,24 +48,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
           role="menu"
           className="card dropdown-surface absolute right-2 top-12 z-20 min-w-[220px] rounded-2xl shadow-xl p-2"
         >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => { onClose(); setRulesOpen(true) }}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-          >
-            📖 How to play
-          </button>
-          {hintAction && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleHint}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-            >
-              💡 Get a hint <span className="text-rungles-500">(−5)</span>
-            </button>
-          )}
+          {/* Canonical SQ order: Theme → How to play → Admin → game rows → Report → Log out */}
           <button
             type="button"
             role="menuitem"
@@ -75,7 +58,14 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
             <span>{isDark ? '🌙 Dark' : '☀️ Light'}</span>
             <span className="text-xs text-rungles-500">tap to switch</span>
           </button>
-          {gameRows && gameRows(onClose)}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { onClose(); setRulesOpen(true) }}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
+          >
+            📖 How to play
+          </button>
           {isAdmin && onToggleAdmin && (
             <button
               type="button"
@@ -83,9 +73,20 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
               onClick={() => { onClose(); onToggleAdmin() }}
               className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
             >
-              {lobbyTab === 'admin' ? '← Lobby' : '🔒 Admin panel'}
+              {lobbyTab === 'admin' ? '← Lobby' : 'Admin panel'}
             </button>
           )}
+          {hintAction && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleHint}
+              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
+            >
+              Get a hint <span className="text-rungles-500">(−5)</span>
+            </button>
+          )}
+          {gameRows && gameRows(onClose)}
           <SQReportPlayer
             supabase={supabase}
             game="rungles"
@@ -96,7 +97,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
                 onClick={open}
                 className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
               >
-                🚩 Report a player
+                Report a player
               </button>
             )}
           />
@@ -106,7 +107,7 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
             onClick={handleLogout}
             className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30"
           >
-            🚪 Log out
+            Log out
           </button>
         </div>
       )}
