@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../contexts/ThemeContext.jsx'
 import { useGameActions } from '../contexts/GameActionsContext.jsx'
 import { supabase } from '../lib/supabase.js'
-import { SQReportPlayer } from '../../../rae-side-quest/packages/sq-ui/index.js'
+import { SQReportPlayer, SQSettingsRow } from '../../../rae-side-quest/packages/sq-ui/index.js'
 import RulesModal from './RulesModal.jsx'
 
 // `gameRows` — optional render-prop `(close) => ReactNode` for game-specific
@@ -43,72 +43,35 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
   return (
     <>
       {open && (
-        <div
-          ref={ref}
-          role="menu"
-          className="card dropdown-surface absolute right-2 top-12 z-20 w-max min-w-[11rem] max-w-[16rem] rounded-2xl shadow-xl p-2"
-        >
+        <div ref={ref} role="menu" className="settings-dropdown card">
           {/* Canonical SQ order: Theme → How to play → Admin → game rows → Report → Log out */}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => { toggle() }}
-            className="w-full flex items-center justify-between gap-6 px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-          >
-            <span>{isDark ? '🌙 Dark' : '☀️ Light'}</span>
-            <span className="text-xs text-rungles-500">tap to switch</span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
+          <SQSettingsRow
+            label="Theme"
+            control={isDark ? '☀️ Light' : '🌙 Dark'}
+            onClick={() => toggle()}
+          />
+          <SQSettingsRow
+            label="How to play"
+            control="📖 Open"
             onClick={() => { onClose(); setRulesOpen(true) }}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-          >
-            📖 How to play
-          </button>
+          />
           {isAdmin && onToggleAdmin && (
-            <button
-              type="button"
-              role="menuitem"
+            <SQSettingsRow
+              label="Admin panel"
+              control={lobbyTab === 'admin' ? '← Lobby' : 'Open'}
               onClick={() => { onClose(); onToggleAdmin() }}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-            >
-              {lobbyTab === 'admin' ? '← Lobby' : 'Admin panel'}
-            </button>
+            />
           )}
           {hintAction && (
-            <button
-              type="button"
-              role="menuitem"
+            <SQSettingsRow
+              label="Get a hint"
+              control="(−5)"
               onClick={handleHint}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-            >
-              Get a hint <span className="text-rungles-500">(−5)</span>
-            </button>
+            />
           )}
           {gameRows && gameRows(onClose)}
-          <SQReportPlayer
-            supabase={supabase}
-            game="rungles"
-            renderTrigger={({ open }) => (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={open}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
-              >
-                Report a player
-              </button>
-            )}
-          />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={handleLogout}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-          >
-            Log out
-          </button>
+          <SQReportPlayer supabase={supabase} game="rungles" />
+          <SQSettingsRow label="Log out" danger onClick={handleLogout} />
         </div>
       )}
 
