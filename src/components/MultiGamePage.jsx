@@ -17,7 +17,7 @@ import { scoreRung } from '../lib/scoring.js'
 import { identityOrder, swapInOrder, shuffleOrder, normalizeOrder } from '../lib/rackOrder.js'
 import { useBoardDerived } from '../hooks/useBoardDerived.js'
 import RunglesHeader from './RunglesHeader.jsx'
-import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
+import { SQBoardShell, SQBoardHeader, SQSettingsRow } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
 const RACK_ORDER_STORAGE_PREFIX = 'rungles:multi:rackOrder:'
 
@@ -385,38 +385,27 @@ export default function MultiGamePage({ gameId, myUserId, onLeave, profile, onOp
       .finally(() => setSubmitting(false))
   }
 
-  // Game-specific cog rows (Claim win / Give up), injected into the shared
-  // settings dropdown so they're identical across SQ games. Claim is ALWAYS
-  // shown (so it's consistently discoverable) and greyed out unless actually
-  // claimable — opponent's turn, idle 7+ days.
+  // Game-specific cog rows (Claim win / Forfeit), injected into the shared
+  // settings dropdown via SQSettingsRow so they're identical across SQ games
+  // (c201). Claim is ALWAYS shown (so it's consistently discoverable) and
+  // greyed out unless actually claimable — opponent's turn, idle 7+ days.
   const isComplete = game?.status === 'complete'
   const cogGameRows = (game && game.status === 'active' && !isComplete)
     ? (close) => (
         <>
-          <button
-            type="button"
-            role="menuitem"
+          <SQSettingsRow
+            label="🏆 Claim win (opponent inactive)"
             disabled={!canClaim || submitting}
-            onClick={canClaim ? () => { close(); doClaim() } : undefined}
             title={canClaim
               ? 'Claim the win — opponent inactive 7+ days'
               : 'Available once your opponent has been inactive for 7 days'}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold ${
-              canClaim
-                ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30'
-                : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            🏆 Claim win (opponent inactive)
-          </button>
-          <button
-            type="button"
-            role="menuitem"
+            onClick={() => { close(); doClaim() }}
+          />
+          <SQSettingsRow
+            label="🏳️ Forfeit game"
+            danger
             onClick={() => { close(); doGiveUp() }}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-          >
-            🏳️ Give up
-          </button>
+          />
         </>
       )
     : null
