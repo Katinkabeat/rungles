@@ -46,14 +46,14 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
         <div
           ref={ref}
           role="menu"
-          className="card dropdown-surface absolute right-2 top-12 z-20 min-w-[220px] rounded-2xl shadow-xl p-2"
+          className="card dropdown-surface absolute right-2 top-12 z-20 w-max min-w-[11rem] max-w-[16rem] rounded-2xl shadow-xl p-2"
         >
           {/* Canonical SQ order: Theme → How to play → Admin → game rows → Report → Log out */}
           <button
             type="button"
             role="menuitem"
             onClick={() => { toggle() }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
+            className="w-full flex items-center justify-between gap-6 px-3 py-2 rounded-lg text-sm font-semibold text-rungles-700 hover:bg-rungles-50 dark:hover:bg-rungles-900/40"
           >
             <span>{isDark ? '🌙 Dark' : '☀️ Light'}</span>
             <span className="text-xs text-rungles-500">tap to switch</span>
