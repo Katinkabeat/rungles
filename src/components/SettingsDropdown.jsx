@@ -44,7 +44,8 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
     <>
       {open && (
         <div ref={ref} role="menu" className="settings-dropdown card right-2 top-12 mt-0">
-          {/* Canonical SQ order: Theme → How to play → Admin → game rows → Report → Log out */}
+          {/* Canonical SQ order: Theme → How to play → Admin → Report → game rows → Log out
+              (game rows sit with Log out at the bottom — Forfeit + Log out are both danger). */}
           <SQSettingsRow
             label="Theme"
             control={isDark ? '☀️ Light' : '🌙 Dark'}
@@ -69,8 +70,8 @@ export default function SettingsDropdown({ open, onClose, isAdmin, lobbyTab, onT
               onClick={handleHint}
             />
           )}
-          {gameRows && gameRows(onClose)}
           <SQReportPlayer supabase={supabase} game="rungles" />
+          {gameRows && gameRows(onClose)}
           <SQSettingsRow label="Log out" danger onClick={handleLogout} />
         </div>
       )}
