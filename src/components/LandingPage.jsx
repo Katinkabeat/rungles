@@ -1,7 +1,9 @@
-import React, { lazy, Suspense, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import LobbyList from './LobbyList.jsx'
 import CompletedGamesSection from './CompletedGamesSection.jsx'
 import CreateGameSheet from './CreateGameSheet.jsx'
+import { atlanticYMD } from '../lib/rng.js'
+import { fetchTodayDaily } from '../lib/statsService.js'
 
 // Lazy-loaded so non-admins never download the admin panel code.
 const AdminPanel = lazy(() => import('./AdminPanel.jsx'))
@@ -9,6 +11,17 @@ const AdminPanel = lazy(() => import('./AdminPanel.jsx'))
 export default function LandingPage({ profile, user, myUserId, isAdmin, lobbyTab, onPlaySolo, onEnterGame }) {
   const [showSheet, setShowSheet] = useState(false)
   const [reloadTick, setReloadTick] = useState(0)
+  const [playedToday, setPlayedToday] = useState(false)
+
+  // Solo is a daily — reflect whether today's ladder is already done.
+  useEffect(() => {
+    if (!myUserId) return
+    let alive = true
+    fetchTodayDaily(myUserId, atlanticYMD())
+      .then(row => { if (alive) setPlayedToday(!!row) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [myUserId])
 
   if (lobbyTab === 'admin' && isAdmin) {
     return (
@@ -20,15 +33,20 @@ export default function LandingPage({ profile, user, myUserId, isAdmin, lobbyTab
 
   return (
     <>
-      <section className="card">
+      <section className="card relative">
+        {playedToday && (
+          <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rungles-200 text-rungles-700 text-xs font-bold">
+            ✓ Played today
+          </span>
+        )}
         <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200 mb-1">
-          🎯 Solo
+          🎯 Today's Rungles
         </h2>
         <p className="text-sm text-rungles-700 dark:text-rungles-300 mb-3">
-          Climb a 7-rung ladder on your own.
+          Climb today's 7-rung ladder — one play a day, same board for everyone.
         </p>
         <button type="button" className="btn-primary" onClick={onPlaySolo}>
-          ▶ Play Solo
+          {playedToday ? '↗ View today\'s result' : '▶ Play today'}
         </button>
       </section>
 

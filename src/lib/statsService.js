@@ -76,6 +76,35 @@ export async function fetchMyMultiplayerStats(userId) {
   }
 }
 
+// ── daily (c215) ─────────────────────────────────────────────────
+// The caller's daily row for `date` (Atlantic YYYY-MM-DD), or null if they
+// haven't played today. Used to gate the once-a-day solo.
+export async function fetchTodayDaily(userId, date) {
+  const { data, error } = await supabase
+    .from('rg_solo_games')
+    .select('total_score, rungs_completed, gave_up, best_word, best_rung_score, played_at')
+    .eq('user_id', userId)
+    .eq('play_date', date)
+    .maybeSingle()
+  if (error) throw error
+  return data ?? null
+}
+
+// Authoritative daily write. Server stamps the Atlantic day and no-ops on a
+// second play. Returns { counted, playDay }.
+export async function recordDailySolo({ totalScore, rungsCompleted, gaveUp, bestWord, bestRungScore }) {
+  const { data, error } = await supabase.rpc('rg_record_daily_solo', {
+    p_total_score: totalScore,
+    p_rungs_completed: rungsCompleted,
+    p_gave_up: gaveUp,
+    p_best_word: bestWord ?? null,
+    p_best_rung_score: bestRungScore ?? null,
+  })
+  if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  return { counted: !!row?.counted, playDay: row?.play_day ?? null }
+}
+
 // ── leaderboard (c92: timeframe-aware via RPCs) ──────────────────
 // Fetches the top-10 leaderboard for the requested window, plus the
 // caller's best-game rank if they're outside the top 10. Per-game

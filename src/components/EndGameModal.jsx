@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import LadderRow from './LadderRow.jsx'
 
-export default function EndGameModal({ open, ladder, totalScore, gaveUp, onPlayAgain, onClose }) {
+export default function EndGameModal({ open, ladder, totalScore, gaveUp, onViewLeaderboard, onBackToLobby, onClose }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -40,12 +40,15 @@ export default function EndGameModal({ open, ladder, totalScore, gaveUp, onPlayA
           )}
         </div>
 
+        <p className="text-xs text-rungles-500 mb-3">
+          One play a day — come back tomorrow for a fresh ladder.
+        </p>
         <div className="flex gap-2">
-          <button type="button" className="btn-secondary flex-1" onClick={onClose}>
-            Close
+          <button type="button" className="btn-secondary flex-1" onClick={onBackToLobby}>
+            ← Lobby
           </button>
-          <button type="button" className="btn-primary flex-1" onClick={onPlayAgain}>
-            ▶ Play Again
+          <button type="button" className="btn-primary flex-1" onClick={onViewLeaderboard}>
+            🏆 Leaderboard
           </button>
         </div>
       </div>

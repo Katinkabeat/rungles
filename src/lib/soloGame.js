@@ -6,19 +6,24 @@ import { dealOpeningHand, refillRack, LETTER_VALUES, RACK_SIZE } from './tiles.j
 import { isValidWord, canFormAnyWord, findHintWord } from './dictionary.js'
 import { scoreRung } from './scoring.js'
 import { identityOrder, swapInOrder, shuffleOrder, normalizeOrder } from './rackOrder.js'
+import { rngFromSeed, dailySeedString, atlanticYMD } from './rng.js'
 
 export const TOTAL_RUNGS = 7
 export const MIN_WORD_LEN = 4
 export const MAX_WORD_LEN = 7
 export const CARRY_REQUIRED = 3
 export const HINT_COST = 5
-export const SAVE_KEY = 'rungles:solo:v1'
+// Save key is per Atlantic day — the solo game is now a daily, so a save from
+// a previous day must never resume into today's puzzle. saveKeyFor() builds
+// the dated key; OLD_SAVE_KEY is the pre-daily key we clean up on load.
+const OLD_SAVE_KEY = 'rungles:solo:v1'
+function saveKeyFor(dayKey) { return `rungles:solo:${dayKey ?? atlanticYMD()}` }
 
 export function emptyWord() { return new Array(MAX_WORD_LEN).fill(null) }
 
-export function pickPremiumPos() {
+export function pickPremiumPos(rng = Math.random) {
   // 2..6 inclusive — short words can sometimes miss the premium (per design).
-  return 2 + Math.floor(Math.random() * 5)
+  return 2 + Math.floor(rng() * 5)
 }
 
 export function initialState() {
@@ -34,17 +39,26 @@ export function initialState() {
     selected: emptyWord(),
     selection: null,    // { source: 'rack'|'carried', idx } — picked-up tile
     premiumPos: null,
+    premiumPositions: [], // all TOTAL_RUNGS premium positions, pre-rolled from the daily seed
+    dayKey: null,         // Atlantic YYYY-MM-DD this board belongs to
     gameOver: false,
   }
 }
 
-export function newGameState() {
-  const hand = dealOpeningHand(canFormAnyWord)
+// Build today's daily board. Everything random is derived from the daily seed
+// so all players get the same board and the same per-rung premium positions —
+// the deal AND the 7 premium slots are pre-rolled up front, so no randomness is
+// consumed during play (refills just pop the already-shuffled bag).
+export function newGameState(seedString = dailySeedString()) {
+  const rng = rngFromSeed(seedString)
+  const hand = dealOpeningHand(canFormAnyWord, rng)
   const s = initialState()
   s.bag = hand.bag
   s.rack = hand.rack
   s.rackOrder = identityOrder(s.rack.length)
-  s.premiumPos = pickPremiumPos()
+  s.premiumPositions = Array.from({ length: TOTAL_RUNGS }, () => pickPremiumPos(rng))
+  s.premiumPos = s.premiumPositions[0]
+  s.dayKey = atlanticYMD()
   return s
 }
 
@@ -194,7 +208,8 @@ export function applySubmit(s) {
     selected: emptyWord(),
     selection: null,
     carried: gameEnded ? [] : word.split('').map(letter => ({ letter, used: false })),
-    premiumPos: gameEnded ? null : pickPremiumPos(),
+    // Pre-rolled from the daily seed at deal time — same premium for everyone.
+    premiumPos: gameEnded ? null : s.premiumPositions[nextRungNumber - 1],
     gameOver: gameEnded,
   }
   return { state: next, scored: { word, rungScore, gameEnded } }
@@ -224,18 +239,23 @@ export function bestRung(state) {
 // ── persistence ────────────────────────────────────────────────────
 export function saveState(state) {
   try {
-    if (state.gameOver) { localStorage.removeItem(SAVE_KEY); return }
+    const key = saveKeyFor(state.dayKey)
+    if (state.gameOver) { localStorage.removeItem(key); return }
     const snapshot = { ...state, selection: null }
-    localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot))
+    localStorage.setItem(key, JSON.stringify(snapshot))
   } catch { /* quota / disabled storage — silent */ }
 }
 
 export function loadState() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY)
+    localStorage.removeItem(OLD_SAVE_KEY) // drop pre-daily free-play save
+    const today = atlanticYMD()
+    const raw = localStorage.getItem(saveKeyFor(today))
     if (!raw) return null
     const saved = JSON.parse(raw)
     if (!saved || saved.gameOver) return null
+    // A save from a previous day must not resume into today's puzzle.
+    if (saved.dayKey && saved.dayKey !== today) return null
     // Backward compat: older saves predate rackOrder. Default to identity if
     // missing or invalid (wrong length, bad values).
     const rackOrder = normalizeOrder(saved.rackOrder, (saved.rack ?? []).length)
@@ -244,7 +264,7 @@ export function loadState() {
 }
 
 export function clearSave() {
-  try { localStorage.removeItem(SAVE_KEY) } catch {}
+  try { localStorage.removeItem(saveKeyFor()) } catch {}
 }
 
 export { LETTER_VALUES, RACK_SIZE }

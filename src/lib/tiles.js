@@ -26,18 +26,19 @@ function buildBag() {
   return bag;
 }
 
-// Fisher-Yates shuffle in place.
-function shuffle(arr) {
+// Fisher-Yates shuffle in place. `rng` is a () => [0,1) source — pass a
+// seeded one (rng.js) for the deterministic daily; defaults to Math.random.
+function shuffle(arr, rng = Math.random) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
 }
 
 // Create a fresh shuffled bag.
-export function createBag() {
-  return shuffle(buildBag());
+export function createBag(rng = Math.random) {
+  return shuffle(buildBag(), rng);
 }
 
 // Draw up to `count` tiles from the end of the bag (mutates bag). Returns drawn tiles.
@@ -69,11 +70,11 @@ export function isBadOpeningRack(rack) {
 // Deal an opening hand. Redraws until the rack is playable per the supplied predicate
 // (otherwise falls back to the all-vowels/all-consonants heuristic). Capped so we always
 // return something sensible, but in practice a real dictionary-backed check succeeds fast.
-export function dealOpeningHand(isPlayable) {
+export function dealOpeningHand(isPlayable, rng = Math.random) {
   const MAX_TRIES = 30;
   let bag, rack;
   for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
-    bag = createBag();
+    bag = createBag(rng);
     rack = draw(bag, RACK_SIZE);
     const ok = !isBadOpeningRack(rack) && (!isPlayable || isPlayable(rack));
     if (ok) return { bag, rack };

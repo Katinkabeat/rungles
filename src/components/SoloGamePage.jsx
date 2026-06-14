@@ -17,12 +17,17 @@ import {
   lastFilledSlot, previewScore, tryTypeLetter, popLastSlot,
   bestRung,
 } from '../lib/soloGame.js'
-import { supabase } from '../lib/supabase.js'
+import { dailySeedString, atlanticYMD } from '../lib/rng.js'
+import { fetchTodayDaily, recordDailySolo } from '../lib/statsService.js'
 import RunglesHeader from './RunglesHeader.jsx'
 import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
-export default function SoloGamePage({ onBack, profile, onOpenStats }) {
-  const [state, setState] = useState(() => loadState() ?? newGameState())
+export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId }) {
+  // Solo is a daily (c215): one shared board per Atlantic day, one scored
+  // play per user per day. Gate on whether they've already played today.
+  const today = atlanticYMD()
+  const [daily, setDaily] = useState('checking') // 'checking' | 'playable' | { ...row } already played
+  const [state, setState] = useState(() => loadState() ?? newGameState(dailySeedString()))
   const [banner, setBanner] = useState({ text: '', tone: '' })
   const [flash, setFlash] = useState('')
   const [scorePulse, setScorePulse] = useState(false)
@@ -39,6 +44,16 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
   useEffect(() => { stateRef.current = state }, [state])
 
   useEffect(() => { saveState(state) }, [state])
+
+  // Daily gate: on mount, check whether the user already played today.
+  useEffect(() => {
+    let alive = true
+    if (!myUserId) { setDaily('playable'); return } // dev / no auth — allow, won't record
+    fetchTodayDaily(myUserId, today)
+      .then(row => { if (alive) setDaily(row ?? 'playable') })
+      .catch(() => { if (alive) setDaily('playable') })
+    return () => { alive = false }
+  }, [myUserId, today])
 
   useEffect(() => {
     const onVis = () => { if (document.visibilityState === 'hidden') saveState(state) }
@@ -174,20 +189,40 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
     setEndgameGaveUp(gaveUp)
     setEndgameOpen(true)
     clearSave()
-    recordSoloGame(finalState, gaveUp).catch(e => console.warn('Stats record failed', e))
-  }
-
-  function startNewGame() {
-    setEndgameOpen(false)
-    setBanner({ text: '', tone: '' })
-    setGiveUpArmed(false)
-    setState(newGameState())
+    const best = bestRung(finalState)
+    // The EndGameModal (ladder + final score, with Lobby/Leaderboard actions)
+    // is the post-game surface for THIS session. The already-played panel only
+    // gates re-entry (fetchTodayDaily on the next mount), so we don't flip to
+    // it here — that would yank the modal away the instant the write returns.
+    recordDailySolo({
+      totalScore: finalState.totalScore,
+      rungsCompleted: finalState.ladder.length,
+      gaveUp,
+      bestWord: best?.word ?? null,
+      bestRungScore: best?.rungScore ?? null,
+    }).catch(e => console.warn('Daily record failed', e)) // dev / no auth — silent
   }
 
   const { filled, usedRackIdxs, usedCarriedIdxs } = useBoardDerived(state.selected)
   const preview = filled > 0 ? previewScore(state) : null
   const submitDisabled = state.gameOver || filled < 1
   const lastRung = state.ladder.length > 0 ? state.ladder[state.ladder.length - 1] : null
+
+  // ── Daily gate ───────────────────────────────────────────────
+  if (daily === 'checking') {
+    return (
+      <DailyShell profile={profile} onOpenStats={onOpenStats} onBack={onBack}>
+        <p className="text-sm text-rungles-600 dark:text-rungles-300 text-center py-8">Loading today's puzzle…</p>
+      </DailyShell>
+    )
+  }
+  if (daily !== 'playable') {
+    return (
+      <DailyShell profile={profile} onOpenStats={onOpenStats} onBack={onBack}>
+        <DailyPlayedPanel row={daily} onOpenStats={onOpenStats} onBack={onBack} />
+      </DailyShell>
+    )
+  }
 
   return (
     <SQBoardShell
@@ -333,10 +368,51 @@ export default function SoloGamePage({ onBack, profile, onOpenStats }) {
         ladder={state.ladder}
         totalScore={state.totalScore}
         gaveUp={endgameGaveUp}
-        onPlayAgain={startNewGame}
+        onViewLeaderboard={onOpenStats}
+        onBackToLobby={onBack}
         onClose={() => setEndgameOpen(false)}
       />
     </SQBoardShell>
+  )
+}
+
+// Shell for the daily gate states (checking / already played) — reuses the
+// solo chrome so the header + back button match the game view.
+function DailyShell({ profile, onOpenStats, onBack, children }) {
+  return (
+    <SQBoardShell
+      width="narrow"
+      header={<RunglesHeader profile={profile} onOpenStats={onOpenStats} />}
+      subHeader={<SQBoardHeader backLabel="← Lobby" onBackClick={onBack} />}
+    >
+      {children}
+    </SQBoardShell>
+  )
+}
+
+// Shown when the user has already played today's daily.
+function DailyPlayedPanel({ row, onOpenStats, onBack }) {
+  return (
+    <section className="card text-center space-y-3">
+      <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200">
+        ✅ You've climbed today's ladder
+      </h2>
+      <p className="text-sm text-rungles-600 dark:text-rungles-300">
+        One play a day — come back tomorrow for a fresh ladder.
+      </p>
+      <div>
+        <p className="text-xs uppercase tracking-wider text-rungles-500 mb-1">Today's score</p>
+        <p className="font-display text-5xl text-rungles-700 dark:text-rungles-100">{row.total_score}</p>
+        <p className="text-xs text-rungles-500 mt-1">
+          {row.gave_up ? `🏳️ gave up on rung ${row.rungs_completed + 1}` : '🏁 complete'}
+          {row.best_word ? ` · best: ${row.best_word} (+${row.best_rung_score})` : ''}
+        </p>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" className="btn-secondary flex-1" onClick={onBack}>← Lobby</button>
+        <button type="button" className="btn-primary flex-1" onClick={onOpenStats}>🏆 Leaderboard</button>
+      </div>
+    </section>
   )
 }
 
@@ -358,18 +434,4 @@ function ActionButton({ emoji, label, onClick, variant, disabled, fullWidth = fa
       <span className="btn-icon-label">{label}</span>
     </button>
   )
-}
-
-async function recordSoloGame(state, gaveUp) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  const best = bestRung(state)
-  await supabase.from('rg_solo_games').insert({
-    user_id: user.id,
-    total_score: state.totalScore,
-    rungs_completed: state.ladder.length,
-    gave_up: gaveUp,
-    best_word: best?.word ?? null,
-    best_rung_score: best?.rungScore ?? null,
-  })
 }

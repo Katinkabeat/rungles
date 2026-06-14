@@ -133,6 +133,7 @@ function AppInner() {
       {view === 'solo' && (
         <SoloGamePage
           profile={profile}
+          myUserId={session?.user?.id}
           onOpenStats={openStats}
           onBack={() => setView('landing')}
         />
