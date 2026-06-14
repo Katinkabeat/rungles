@@ -10,6 +10,43 @@ Rungles is a word game (Scrabble tile management + Wordle daily/shareable feel).
 - **Live:** `katinkabeat.github.io/rungles/`
 - **Supabase project ref:** `yyhewndblruwxsrqzart` (shared with Wordy and SQ)
 
+## Session: June 14, 2026 — Solo is now a DAILY (c215)
+
+Converted solo from unlimited replays to a once-a-day daily puzzle. Rae's
+locked decisions: Halifax midnight reset, **no practice mode** (one play, full
+stop).
+
+- **Deterministic board from the daily seed.** New `src/lib/rng.js` (mulberry32
+  + `atlanticYMD` + `dailySeedString('rungles:daily:YYYY-MM-DD')`, mirrors
+  Yahdle). `tiles.js` shuffle/createBag/dealOpeningHand take an optional `rng`
+  (defaults to Math.random — multiplayer deals server-side, untouched).
+  `soloGame.js`: `newGameState(seed)` builds the rng, deals deterministically,
+  and **pre-rolls all 7 premium positions** into `state.premiumPositions` up
+  front, so no randomness is consumed during play (refills just pop the
+  already-shuffled bag). `applySubmit` reads premium from the array. Same board
+  for everyone, verified (rack UOCERVI + premium slot 6 reproduced after
+  clearing the save).
+- **Per-day save key.** `rungles:solo:<Atlantic-date>`; a previous day's save
+  never resumes into today; old `rungles:solo:v1` cleaned up on load.
+- **One scored play per day.** `migration-020-solo-daily.sql`: adds
+  `play_date` to `rg_solo_games` + **partial** unique index on (user_id,
+  play_date) WHERE play_date IS NOT NULL (history keeps play_date NULL → index
+  ignores it, non-destructive). `rg_record_daily_solo()` SECDEF RPC computes the
+  Atlantic day server-side and no-ops the 2nd play (ON CONFLICT DO NOTHING,
+  returns counted bool). Verified in a rolled-back txn: 1st counts, 2nd no-ops,
+  keeps the FIRST score. Applied to prod via pooler.
+- **Leaderboard unchanged** — existing `rg_solo_leaderboard`/`rg_solo_my_rank`
+  (migration-015) already rank per-user-best in a Halifax window; a daily just
+  means ≤1 row/user/day.
+- **UI.** Landing card → "🎯 Today's Rungles" + "✓ Played today" pill +
+  "↗ View today's result" when done. SoloGamePage gates on mount via
+  `fetchTodayDaily` (checking / playable / already-played panel). EndGameModal
+  swapped "Play Again" for ← Lobby / 🏆 Leaderboard. `recordSoloGame` direct
+  insert replaced by `recordDailySolo` RPC call.
+- **Why:** gives Rungles a daily loop like Yahdle/Snibble, and naturally caps
+  solo for the planned Rook weekly-points board (c214) without a special cap.
+- **CACHE_VERSION bumped** rungles-v40 → v41. Committed + pushed (`ecff627`).
+
 ## Session: June 7, 2026 — How-to: inactive-player rules documented
 
 Added a "When your opponent goes quiet" `<Section>` to the bottom of `RulesModal.jsx`:
