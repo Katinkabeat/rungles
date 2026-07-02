@@ -414,3 +414,6 @@ Deleted local src/lib/timeAgo.js (it capped at "Xh ago" and NEVER rolled over to
 
 ## 2026-06-11 — Game-end push on claim/forfeit (c188)
 Rungles had no game-end push (turn_change only). Added the unified SQ game-end contract (mirrors Wordy). `rg_games.end_reason` ('claim'|'forfeit'). `rg_claim_inactive_win` stamps 'claim'; `rg_give_up` stamps 'forfeit' AND now records `forfeit_user_id = caller` (it previously set only winner_player_idx, so the loser couldn't be identified). New `on_rg_game_finished` trigger (active→complete, WHEN end_reason set) → pg_net 'game_finished'. Edge fn got `getUsername` + a `game_finished` handler: loser = forfeit_user_id, winner = rg_players at winner_player_idx; claim → push loser, forfeit → push winner; same two messages as Wordy; skips bots/respects prefs. Migration `supabase/migration-019-gameend-push.sql` applied via pooler; fn deployed. Routing verified on the deployed fn (recipient/wording identical to verified Wordy).
+
+## 2026-07-02 — Removed "← you" leaderboard self-marker (Rae request)
+Dropped the "← you" text label (Wordy: "(you)") from the leaderboard row in StatsPage. The `isYou`/`isMe` prop still drives the row highlight (bg-white/15 ring) — only the redundant text was removed. In-match "(you)" during live games left as-is (not a leaderboard). No Quill post (Rae's call, too small).
