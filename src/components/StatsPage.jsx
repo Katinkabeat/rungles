@@ -195,7 +195,6 @@ function LeaderboardRow({ rank, row, isMe }) {
       <div className="w-9 text-center font-display text-sm">#{rank}</div>
       <div className="flex-1 min-w-0 truncate text-sm">
         <span className="font-bold">{row.username ?? '…'}</span>
-        {isMe && <span className="ml-2 text-[10px] opacity-60">← you</span>}
       </div>
       <div className="font-display text-sm">{row.totalScore} pts</div>
     </li>
