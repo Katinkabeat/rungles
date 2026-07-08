@@ -221,17 +221,32 @@ export async function sendNudge(gameId, nudgerName) {
   )
   if (rpcErr) throw rpcErr
 
-  // Fire-and-forget push delivery — don't block on it.
+  // The push IS the nudge, so await it and report a dropped POST instead of
+  // leaving the nudger with a false "sent" toast (c239). 8s cap so a hung
+  // edge fn can't spin the button forever.
   const url = `${SUPABASE_URL}/functions/v1/rungles-push-notification`
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON}`,
-      apikey: SUPABASE_ANON,
-    },
-    body: JSON.stringify({ type: 'nudge', game_id: gameId, nudger_name: nudgerName }),
-  }).catch(() => {})
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 8000)
+  let ok = false
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        apikey: SUPABASE_ANON,
+      },
+      body: JSON.stringify({ type: 'nudge', game_id: gameId, nudger_name: nudgerName }),
+      signal: ctrl.signal,
+    })
+    ok = res.ok
+    if (!ok) console.warn(`[nudge] push failed: HTTP ${res.status}`)
+  } catch (err) {
+    console.warn('[nudge] push error:', err?.name === 'AbortError' ? 'timeout' : err)
+  } finally {
+    clearTimeout(timer)
+  }
+  if (!ok) throw new Error('the push did not go through')
 }
 
 export function canNudgeGame(game, myUserId, recentlyNudgedSet) {
