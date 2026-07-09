@@ -2,7 +2,7 @@
 // leaderboards from rg_solo_games, plus personal multiplayer stats derived
 // from rg_players / rg_games / rg_rungs. UI lives in StatsModal.jsx.
 
-import { supabase } from './supabase.js'
+import { supabase, rpcWithRetry } from './supabase.js'
 
 // ── personal stats ────────────────────────────────────────────────
 export async function fetchMyStats(userId) {
@@ -93,13 +93,17 @@ export async function fetchTodayDaily(userId, date) {
 // Authoritative daily write. Server stamps the Atlantic day and no-ops on a
 // second play. Returns { counted, playDay }.
 export async function recordDailySolo({ totalScore, rungsCompleted, gaveUp, bestWord, bestRungScore }) {
-  const { data, error } = await supabase.rpc('rg_record_daily_solo', {
+  // rpcWithRetry covers the iOS-Safari network-layer race; the caller
+  // (finishGame) layers a refreshSession()-and-retry on top for stale-token
+  // 401s after a backgrounded tab. Together they keep a finished daily from
+  // being silently dropped (which also reopened the day for replay).
+  const { data, error } = await rpcWithRetry(() => supabase.rpc('rg_record_daily_solo', {
     p_total_score: totalScore,
     p_rungs_completed: rungsCompleted,
     p_gave_up: gaveUp,
     p_best_word: bestWord ?? null,
     p_best_rung_score: bestRungScore ?? null,
-  })
+  }))
   if (error) throw error
   const row = Array.isArray(data) ? data[0] : data
   return { counted: !!row?.counted, playDay: row?.play_day ?? null }

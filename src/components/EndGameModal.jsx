@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import LadderRow from './LadderRow.jsx'
 
-export default function EndGameModal({ open, ladder, totalScore, gaveUp, onViewLeaderboard, onBackToLobby, onClose }) {
+export default function EndGameModal({ open, ladder, totalScore, gaveUp, saveState, onRetrySave, onViewLeaderboard, onBackToLobby, onClose }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -40,6 +40,8 @@ export default function EndGameModal({ open, ladder, totalScore, gaveUp, onViewL
           )}
         </div>
 
+        <SaveStatus saveState={saveState} onRetrySave={onRetrySave} />
+
         <p className="text-xs text-rungles-500 mb-3">
           One play a day — come back tomorrow for a fresh ladder.
         </p>
@@ -54,4 +56,26 @@ export default function EndGameModal({ open, ladder, totalScore, gaveUp, onViewL
       </div>
     </dialog>
   )
+}
+
+// Reflect the real save state of the daily result. A silent failure here both
+// loses the score and reopens today's daily for replay, so on a hard failure
+// we show a retry instead of pretending it saved.
+function SaveStatus({ saveState, onRetrySave }) {
+  if (saveState === 'error') {
+    return (
+      <div className="mb-3">
+        <p className="text-sm font-semibold text-rose-600 dark:text-rose-300">
+          Couldn't save your score.
+        </p>
+        <button type="button" className="btn-primary mt-2" onClick={onRetrySave}>
+          Retry saving
+        </button>
+      </div>
+    )
+  }
+  if (saveState === 'saving') {
+    return <p className="text-xs text-rungles-500 mb-1">Saving your score…</p>
+  }
+  return null
 }

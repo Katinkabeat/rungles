@@ -19,6 +19,7 @@ import {
 } from '../lib/soloGame.js'
 import { dailySeedString, atlanticYMD } from '../lib/rng.js'
 import { fetchTodayDaily, recordDailySolo } from '../lib/statsService.js'
+import { supabase } from '../lib/supabase.js'
 import RunglesHeader from './RunglesHeader.jsx'
 import { SQBoardShell, SQBoardHeader } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
@@ -34,6 +35,10 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
   const [historyOpen, setHistoryOpen] = useState(false)
   const [endgameOpen, setEndgameOpen] = useState(false)
   const [endgameGaveUp, setEndgameGaveUp] = useState(false)
+  // NB: `saveState` (imported from soloGame.js) persists the board to
+  // localStorage — do not shadow it. This is the daily-result write status.
+  const [recordState, setRecordState] = useState('idle') // idle | saving | error | saved
+  const lastRecordRef = useRef(null) // args of the finished run, for retry
   const [pendingBlank, setPendingBlank] = useState(null)
   const [giveUpArmed, setGiveUpArmed] = useState(false)
   const giveUpTimer = useRef(null)
@@ -194,13 +199,42 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
     // is the post-game surface for THIS session. The already-played panel only
     // gates re-entry (fetchTodayDaily on the next mount), so we don't flip to
     // it here — that would yank the modal away the instant the write returns.
-    recordDailySolo({
+    const args = {
       totalScore: finalState.totalScore,
       rungsCompleted: finalState.ladder.length,
       gaveUp,
       bestWord: best?.word ?? null,
       bestRungScore: best?.rungScore ?? null,
-    }).catch(e => console.warn('Daily record failed', e)) // dev / no auth — silent
+    }
+    lastRecordRef.current = args
+    recordDaily(args)
+  }
+
+  // Record the finished daily. NOT fire-and-forget: a swallowed failure both
+  // drops the score AND, because re-entry is gated on the rg_solo_games row,
+  // reopens today's daily for replay/leaderboard-farm. So on failure we
+  // refreshSession() (renews a stale token from a backgrounded tab) and retry,
+  // and surface the state in the end-game modal (saving / retry) instead of
+  // silently claiming success.
+  async function recordDaily(args) {
+    if (!myUserId) { setRecordState('saved'); return } // dev / no auth — nothing to record
+    setRecordState('saving')
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await recordDailySolo(args)
+        setRecordState('saved')
+        return
+      } catch (e) {
+        console.warn(`[rungles] daily record failed (attempt ${attempt + 1})`, e)
+        await supabase.auth.refreshSession().catch(() => {})
+        await new Promise(r => setTimeout(r, 400 * (attempt + 1)))
+      }
+    }
+    setRecordState('error')
+  }
+
+  function retrySave() {
+    if (lastRecordRef.current) recordDaily(lastRecordRef.current)
   }
 
   const { filled, usedRackIdxs, usedCarriedIdxs } = useBoardDerived(state.selected)
@@ -368,6 +402,8 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
         ladder={state.ladder}
         totalScore={state.totalScore}
         gaveUp={endgameGaveUp}
+        saveState={recordState}
+        onRetrySave={retrySave}
         onViewLeaderboard={onOpenStats}
         onBackToLobby={onBack}
         onClose={() => setEndgameOpen(false)}
