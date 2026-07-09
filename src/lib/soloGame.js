@@ -263,8 +263,10 @@ export function loadState() {
   } catch { return null }
 }
 
-export function clearSave() {
-  try { localStorage.removeItem(saveKeyFor()) } catch {}
+// Pass the finished board's dayKey. A ladder that crossed midnight was saved
+// under its own day's key, so defaulting to today would orphan it (c257).
+export function clearSave(dayKey) {
+  try { localStorage.removeItem(saveKeyFor(dayKey)) } catch {}
 }
 
 export { LETTER_VALUES, RACK_SIZE }

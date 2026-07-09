@@ -35,6 +35,10 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
   const [historyOpen, setHistoryOpen] = useState(false)
   const [endgameOpen, setEndgameOpen] = useState(false)
   const [endgameGaveUp, setEndgameGaveUp] = useState(false)
+  // Set when the ladder being played belongs to a day that has since ended
+  // (started before midnight, finished after). The server refuses to record it,
+  // so we say so rather than retrying a write that can never land (c257).
+  const [dayClosed, setDayClosed] = useState(false)
   // NB: `saveState` (imported from soloGame.js) persists the board to
   // localStorage — do not shadow it. This is the daily-result write status.
   const [recordState, setRecordState] = useState('idle') // idle | saving | error | saved
@@ -193,13 +197,19 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
   function finishGame(finalState, gaveUp) {
     setEndgameGaveUp(gaveUp)
     setEndgameOpen(true)
-    clearSave()
+    clearSave(finalState.dayKey)
+    // Read the day fresh, not the mount-time `today` — the whole point is that
+    // it may have rolled over while this ladder was being played.
+    const closed = !!finalState.dayKey && finalState.dayKey !== atlanticYMD()
+    setDayClosed(closed)
+    if (closed) return // the note handles it; the server would reject this write
     const best = bestRung(finalState)
     // The EndGameModal (ladder + final score, with Lobby/Leaderboard actions)
     // is the post-game surface for THIS session. The already-played panel only
     // gates re-entry (fetchTodayDaily on the next mount), so we don't flip to
     // it here — that would yank the modal away the instant the write returns.
     const args = {
+      playDate: finalState.dayKey,
       totalScore: finalState.totalScore,
       rungsCompleted: finalState.ladder.length,
       gaveUp,
@@ -404,6 +414,7 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
         gaveUp={endgameGaveUp}
         saveState={recordState}
         onRetrySave={retrySave}
+        dayClosed={dayClosed}
         onViewLeaderboard={onOpenStats}
         onBackToLobby={onBack}
         onClose={() => setEndgameOpen(false)}
@@ -434,7 +445,7 @@ function DailyPlayedPanel({ row, onOpenStats, onBack }) {
         ✅ You've climbed today's ladder
       </h2>
       <p className="text-sm text-rungles-600 dark:text-rungles-300">
-        One play a day — come back tomorrow for a fresh ladder.
+        One play a day, come back tomorrow for a fresh ladder.
       </p>
       <div>
         <p className="text-xs uppercase tracking-wider text-rungles-500 mb-1">Today's score</p>

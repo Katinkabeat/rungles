@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import LadderRow from './LadderRow.jsx'
 
-export default function EndGameModal({ open, ladder, totalScore, gaveUp, saveState, onRetrySave, onViewLeaderboard, onBackToLobby, onClose }) {
+export default function EndGameModal({ open, ladder, totalScore, gaveUp, saveState, onRetrySave, dayClosed, onViewLeaderboard, onBackToLobby, onClose }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -40,11 +40,16 @@ export default function EndGameModal({ open, ladder, totalScore, gaveUp, saveSta
           )}
         </div>
 
-        <SaveStatus saveState={saveState} onRetrySave={onRetrySave} />
-
-        <p className="text-xs text-rungles-500 mb-3">
-          One play a day — come back tomorrow for a fresh ladder.
-        </p>
+        {dayClosed ? (
+          <DayEnded />
+        ) : (
+          <>
+            <SaveStatus saveState={saveState} onRetrySave={onRetrySave} />
+            <p className="text-xs text-rungles-500 mb-3">
+              One play a day, come back tomorrow for a fresh ladder.
+            </p>
+          </>
+        )}
         <div className="flex gap-2">
           <button type="button" className="btn-secondary flex-1" onClick={onBackToLobby}>
             ← Lobby
@@ -55,6 +60,23 @@ export default function EndGameModal({ open, ladder, totalScore, gaveUp, saveSta
         </div>
       </div>
     </dialog>
+  )
+}
+
+// The ladder crossed midnight, so its day is over and the server won't record
+// it. Shown instead of SaveStatus, whose retry would hit a guard that rejects
+// this write every time, and instead of "come back tomorrow" — today's ladder
+// is waiting right now.
+function DayEnded() {
+  return (
+    <div className="mb-3">
+      <p className="font-display text-base text-rungles-700 dark:text-rungles-200">
+        Day ended 🌙
+      </p>
+      <p className="text-sm text-rungles-600 dark:text-rungles-300 mt-1">
+        This ladder's day ended at midnight, so this score won't be recorded. Today's ladder is ready when you are.
+      </p>
+    </div>
   )
 }
 

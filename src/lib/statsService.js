@@ -90,14 +90,18 @@ export async function fetchTodayDaily(userId, date) {
   return data ?? null
 }
 
-// Authoritative daily write. Server stamps the Atlantic day and no-ops on a
-// second play. Returns { counted, playDay }.
-export async function recordDailySolo({ totalScore, rungsCompleted, gaveUp, bestWord, bestRungScore }) {
+// Authoritative daily write. `playDate` is the board the run was actually
+// played on (state.dayKey); the server rejects it unless it's still the current
+// Atlantic day, so a ladder that crosses midnight is refused rather than
+// re-dated onto today's board (c257). No-ops on a second play. Returns
+// { counted, playDay }.
+export async function recordDailySolo({ playDate, totalScore, rungsCompleted, gaveUp, bestWord, bestRungScore }) {
   // rpcWithRetry covers the iOS-Safari network-layer race; the caller
   // (finishGame) layers a refreshSession()-and-retry on top for stale-token
   // 401s after a backgrounded tab. Together they keep a finished daily from
   // being silently dropped (which also reopened the day for replay).
   const { data, error } = await rpcWithRetry(() => supabase.rpc('rg_record_daily_solo', {
+    p_play_date: playDate,
     p_total_score: totalScore,
     p_rungs_completed: rungsCompleted,
     p_gave_up: gaveUp,
