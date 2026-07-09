@@ -10,6 +10,39 @@ Rungles is a word game (Scrabble tile management + Wordle daily/shareable feel).
 - **Live:** `katinkabeat.github.io/rungles/`
 - **Supabase project ref:** `yyhewndblruwxsrqzart` (shared with Wordy and SQ)
 
+## Session: July 9, 2026 — the daily write now names its day (c257)
+
+Found while doing Oublex's c246: Rungles was the only daily game where a ladder
+crossing local midnight silently went wrong, and c237 had marked it "already
+safe" for the *wrong reason*.
+
+- **The bug.** `rg_record_daily_solo` took no date and stamped
+  `(now() AT TIME ZONE 'America/Halifax')::date` at write time. That does make a
+  past-dated (padding) write impossible — c237's conclusion — but it also means
+  a ladder started at 11:50pm and finished at 12:05am is **re-dated onto today's
+  board**, and `ON CONFLICT DO NOTHING` then reads as "already played today",
+  locking the player out of today's real ladder with no explanation.
+- **`migration-021-solo-daily-play-date-guard.sql`** adds a `p_play_date date`
+  overload that rejects anything that isn't the server's current Halifax day
+  (same shape as `yahdle_record_daily_solo` / `oublex_record_solo_result`). The
+  client sends the board's `state.dayKey`: the client date is the *claim*, the
+  server stays the *authority*. Zero-downtime rollout (add overload → deploy
+  client → drop the old dateless signature).
+- **Client.** `finishGame` re-reads `atlanticYMD()` at finish time (not the
+  mount-time `today`), skips the write when the day has rolled over, and
+  `EndGameModal` shows a `DayEnded` note in place of `SaveStatus` +
+  "come back tomorrow": *"This ladder's day ended at midnight, so this score
+  won't be recorded. Today's ladder is ready when you are."*
+- **`clearSave(dayKey)`** now takes the finished board's day. It defaulted to
+  *today's* key, so a cross-midnight finish left yesterday's save orphaned.
+- **Verified.** Guard SQL-tested against prod in a rolled-back txn (past date →
+  reject, future date → reject, today → counted=t, second play → counted=f).
+  Client verified in the browser by stamping a board with yesterday's dayKey and
+  then ending the ladder: note renders, no `rg_record_daily_solo` POST fires,
+  stale save cleared; the normal path still shows SaveStatus. Checked prod for
+  damage: 4 daily rows total, none written just after midnight, so nothing was
+  ever misattributed. CACHE_VERSION v42 → v43. Commit `0fb6bfe`.
+
 ## Session: June 14, 2026 — Solo is now a DAILY (c215)
 
 Converted solo from unlimited replays to a once-a-day daily puzzle. Rae's
