@@ -1,6 +1,23 @@
 import { supabase, rpcWithRetry, SUPABASE_URL, SUPABASE_ANON } from './supabase.js'
+// Imported from the utils module rather than sq-ui's index so this non-React
+// lib file doesn't pull the package's JSX components into its chunk.
+import {
+  isNudgeEnabled as sqIsNudgeEnabled,
+  postNudge,
+  nudgeFailureMessage,
+} from '../../../rae-side-quest/packages/sq-ui/utils/nudge.js'
 
 const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000
+
+// Whether a user has Rungles nudge notifications turned on — used to hide the
+// bell for opponents who've opted out. Fail-open; see the shared helper.
+export const isNudgeEnabled = (userId) => sqIsNudgeEnabled(supabase, userId, 'rungles')
+
+// The player whose turn it is — i.e. who a nudge on this game would reach.
+export function currentPlayerId(game) {
+  const players = game.rg_players ?? []
+  return players.find(p => p.player_idx === game.current_player_idx)?.user_id ?? null
+}
 
 // Returns { games, usernameById } where games are the visible rows
 // (waiting + active-where-I'm-a-player). Lazy-sweeps any expired
@@ -222,31 +239,20 @@ export async function sendNudge(gameId, nudgerName) {
   if (rpcErr) throw rpcErr
 
   // The push IS the nudge, so await it and report a dropped POST instead of
-  // leaving the nudger with a false "sent" toast (c239). 8s cap so a hung
-  // edge fn can't spin the button forever.
-  const url = `${SUPABASE_URL}/functions/v1/rungles-push-notification`
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), 8000)
-  let ok = false
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON}`,
-        apikey: SUPABASE_ANON,
-      },
-      body: JSON.stringify({ type: 'nudge', game_id: gameId, nudger_name: nudgerName }),
-      signal: ctrl.signal,
-    })
-    ok = res.ok
-    if (!ok) console.warn(`[nudge] push failed: HTTP ${res.status}`)
-  } catch (err) {
-    console.warn('[nudge] push error:', err?.name === 'AbortError' ? 'timeout' : err)
-  } finally {
-    clearTimeout(timer)
-  }
-  if (!ok) throw new Error('the push did not go through')
+  // leaving the nudger with a false "sent" toast (c239). postNudge reads the
+  // 200 body too: the edge fn answers { sent: false } for a recipient who is
+  // opted out or has no push subscription, and res.ok can't see that (c259).
+  //
+  // NOTE: rg_nudge stamps last_nudged_at itself, before we get here, so an
+  // undelivered nudge still burns the 12h cooldown. Wordy and Yahdle stamp
+  // only after a confirmed delivery; splitting rg_nudge into validate + mark
+  // to match needs a migration and is tracked separately.
+  const { delivered, reason } = await postNudge({
+    url: `${SUPABASE_URL}/functions/v1/rungles-push-notification`,
+    anonKey: SUPABASE_ANON,
+    body: { type: 'nudge', game_id: gameId, nudger_name: nudgerName },
+  })
+  if (!delivered) throw new Error(nudgeFailureMessage(reason))
 }
 
 export function canNudgeGame(game, myUserId, recentlyNudgedSet) {

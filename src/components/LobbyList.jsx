@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import LobbyRow from './LobbyRow.jsx'
 import {
   fetchLobby, subscribeLobby, joinGame, sendNudge, canNudgeGame, cancelGame, declineInvite,
+  isNudgeEnabled, currentPlayerId,
 } from '../lib/lobbyService.js'
 import { supabase } from '../lib/supabase.js'
 
@@ -22,6 +23,8 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
   const [decliningId, setDecliningId] = useState(null)
   const recentlyNudgedRef = useRef(new Set())
   const [, forceTick] = useState(0)
+  // current-player user_id -> whether they have Rungles nudges turned on.
+  const [nudgePrefs, setNudgePrefs] = useState(() => new Map())
 
   async function refresh() {
     try {
@@ -43,6 +46,32 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
     return () => { alive = false; supabase.removeChannel(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUserId])
+
+  // Fetch the nudge opt-in for the current player of every otherwise-nudgeable
+  // game, so the bell only shows when a nudge would actually land (c259). A
+  // fresh Map each pass keeps it correct in both directions — the bell comes
+  // back if they turn nudges on and the lobby refreshes.
+  useEffect(() => {
+    const ids = [...new Set(
+      games
+        .filter(g => canNudgeGame(g, myUserId, recentlyNudgedRef.current))
+        .map(currentPlayerId)
+        .filter(Boolean)
+    )]
+    if (ids.length === 0) { setNudgePrefs(new Map()); return }
+    let cancelled = false
+    Promise.all(ids.map(async id => [id, await isNudgeEnabled(id)]))
+      .then(entries => { if (!cancelled) setNudgePrefs(new Map(entries)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [games, myUserId])
+
+  // Bell shows only when the game is nudgeable AND the current player opted in.
+  function bellVisible(g) {
+    if (!canNudgeGame(g, myUserId, recentlyNudgedRef.current)) return false
+    return nudgePrefs.get(currentPlayerId(g)) === true
+  }
 
   async function handleJoin(gameId) {
     try {
@@ -98,7 +127,7 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
     } catch (e) {
       recentlyNudgedRef.current.delete(gameId)
       forceTick(n => n + 1)
-      toast.error(`Couldn't send reminder: ${e.message ?? e}`)
+      toast.error(e.message ?? String(e))
     }
     refresh()
   }
@@ -155,7 +184,7 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
           game={g}
           myUserId={myUserId}
           usernameById={usernameById}
-          canNudge={canNudgeGame(g, myUserId, recentlyNudgedRef.current)}
+          canNudge={bellVisible(g)}
           onNudge={handleNudge}
           onJoin={handleJoin}
           onResume={handleResume}
