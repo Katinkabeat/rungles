@@ -71,9 +71,9 @@ $$;
 REVOKE ALL ON FUNCTION public.rg_record_daily_solo(date, int, int, boolean, text, int) FROM public;
 GRANT EXECUTE ON FUNCTION public.rg_record_daily_solo(date, int, int, boolean, text, int) TO authenticated;
 
--- ── Step 3, AFTER the new client is live ─────────────────────
--- Retires the dateless signature so the misattributing path can't be called.
--- Left commented so applying this file mid-rollout can't 404 an in-flight
--- client that still calls the old overload.
---
--- DROP FUNCTION IF EXISTS public.rg_record_daily_solo(int, int, boolean, text, int);
+-- ── Step 3 — DONE 2026-07-09, after the new client went live ──
+-- Retires the dateless signature so the misattributing path can't be called at
+-- all. Run only once the deployed client sends p_play_date, or an in-flight tab
+-- on the old bundle gets a 404 on its result write. Safe here: no ladder had
+-- been played in a week, so nothing was mid-run.
+DROP FUNCTION IF EXISTS public.rg_record_daily_solo(int, int, boolean, text, int);

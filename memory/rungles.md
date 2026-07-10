@@ -27,7 +27,9 @@ safe" for the *wrong reason*.
   (same shape as `yahdle_record_daily_solo` / `oublex_record_solo_result`). The
   client sends the board's `state.dayKey`: the client date is the *claim*, the
   server stays the *authority*. Zero-downtime rollout (add overload → deploy
-  client → drop the old dateless signature).
+  client → drop the old dateless signature). All three steps done; the dateless
+  overload no longer exists in prod, so `rg_record_daily_solo` cannot be called
+  without naming its day.
 - **Client.** `finishGame` re-reads `atlanticYMD()` at finish time (not the
   mount-time `today`), skips the write when the day has rolled over, and
   `EndGameModal` shows a `DayEnded` note in place of `SaveStatus` +
