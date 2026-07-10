@@ -250,6 +250,8 @@ export async function sendNudge(gameId, nudgerName) {
   const { delivered, reason } = await postNudge({
     url: `${SUPABASE_URL}/functions/v1/rungles-push-notification`,
     anonKey: SUPABASE_ANON,
+    reportUrl: `${SUPABASE_URL}/functions/v1/sq-report-client-error`,
+    game: 'rungles',
     body: { type: 'nudge', game_id: gameId, nudger_name: nudgerName },
   })
   if (!delivered) throw new Error(nudgeFailureMessage(reason))
