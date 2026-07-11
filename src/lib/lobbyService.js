@@ -242,11 +242,6 @@ export async function sendNudge(gameId, nudgerName) {
   // leaving the nudger with a false "sent" toast (c239). postNudge reads the
   // 200 body too: the edge fn answers { sent: false } for a recipient who is
   // opted out or has no push subscription, and res.ok can't see that (c259).
-  //
-  // NOTE: rg_nudge stamps last_nudged_at itself, before we get here, so an
-  // undelivered nudge still burns the 12h cooldown. Wordy and Yahdle stamp
-  // only after a confirmed delivery; splitting rg_nudge into validate + mark
-  // to match needs a migration and is tracked separately.
   const { delivered, reason } = await postNudge({
     url: `${SUPABASE_URL}/functions/v1/rungles-push-notification`,
     anonKey: SUPABASE_ANON,
@@ -255,6 +250,16 @@ export async function sendNudge(gameId, nudgerName) {
     body: { type: 'nudge', game_id: gameId, nudger_name: nudgerName },
   })
   if (!delivered) throw new Error(nudgeFailureMessage(reason))
+
+  // Start the 12h cooldown only now that the push actually landed. rg_nudge no
+  // longer stamps up-front (c264), so a failed send above never locks the game
+  // for 12h. A failed *stamp* must NOT surface as a "couldn't send" toast — the
+  // push already went out — so warn and move on. supabase.rpc() is a thenable,
+  // not a Promise (no .catch()), so await + destructure { error } (c261).
+  const { error: markErr } = await rpcWithRetry(() =>
+    supabase.rpc('rg_mark_nudged', { p_game_id: gameId })
+  )
+  if (markErr) console.warn('[nudge] cooldown stamp failed:', markErr)
 }
 
 export function canNudgeGame(game, myUserId, recentlyNudgedSet) {
