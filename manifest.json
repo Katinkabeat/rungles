@@ -4,7 +4,7 @@
   "description": "Build a ladder of words. Solo or against a friend.",
   "start_url": "/rungles/",
   "scope": "/rungles/",
-  "display": "standalone",
+  "display": "browser",
   "orientation": "portrait",
   "theme_color": "#c99be5",
   "background_color": "#fcfaf7",

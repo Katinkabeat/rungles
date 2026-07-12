@@ -23,12 +23,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )
 
-// Register service worker. Path must be relative so it lives under
-// `${BASE_URL}sw.js` in both dev and prod (Vite serves public/ at the base).
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js`)
-      .catch(err => console.warn('Service worker registration failed:', err))
-  })
-}
+// No service worker here (c272). Push is centralized at the hub, whose SW owns
+// the single `sidequest` subscription; a game SW would never receive a push.
+// Games are intentionally NOT installable PWAs — the hub is the only installable
+// SideQuest app. installPushHeal() above keeps the shared address fresh via a
+// hub-scoped iframe, so nothing here depends on a game service worker.
