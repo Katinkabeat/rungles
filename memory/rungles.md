@@ -10,6 +10,13 @@ Rungles is a word game (Scrabble tile management + Wordle daily/shareable feel).
 - **Live:** `katinkabeat.github.io/rungles/`
 - **Supabase project ref:** `yyhewndblruwxsrqzart` (shared with Wordy and SQ)
 
+## Session: July 12, 2026 — notification-tap routing fix (c274)
+
+Cross-game fix for push taps opening the wrong board / doing nothing when the installed PWA is already open. Rungles' part:
+- `main.jsx` now calls `installNotificationNav()` (new sq-ui helper) — the hub SW posts a `{type:'NAVIGATE', url}` message on tap and this navigates the open app to the target board. `openWindow` was a no-op inside an already-running installed PWA on Android (the real root cause). Commit `7c032fc`.
+- `App.jsx` deep-link effect now also re-reads `?game` on `visibilitychange`/`pageshow` (was read-once-on-boot), a secondary net. Commit `c80fdca`.
+- The substantive fix lives in the hub (`public/sw.js` + `sq-ui/utils/notificationNav.js`); this game only wires the receiver. See `rae-side-quest` memory + auto-memory `feedback_sq_notification_click_routing`.
+
 ## Session: July 9, 2026 — the daily write now names its day (c257)
 
 Found while doing Oublex's c246: Rungles was the only daily game where a ladder
