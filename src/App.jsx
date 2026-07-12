@@ -79,14 +79,33 @@ function AppInner() {
   }, [])
 
   // Deep-link: ?game=<id> jumps straight into multiplayer.
+  //
+  // Re-checked whenever the tab returns to the foreground, not just on boot.
+  // Tapping a push notification can focus an already-open tab (updating its
+  // URL to a new ?game=<id>) WITHOUT a full reload; a boot-only read would
+  // miss that and strand the player on whatever board was already showing —
+  // the "opens the same board over and over" bug. visibilitychange covers
+  // app resume; pageshow covers back/forward-cache restores.
   useEffect(() => {
     if (boot !== 'ready') return
-    const params = new URLSearchParams(window.location.search)
-    const gameId = params.get('game')
-    if (gameId) {
+
+    const enterFromUrl = () => {
+      const params = new URLSearchParams(window.location.search)
+      const gameId = params.get('game')
+      if (!gameId) return
       window.history.replaceState({}, '', window.location.pathname + window.location.hash)
       setCurrentGameId(gameId)
       setView('multi')
+    }
+
+    enterFromUrl()
+
+    const onVisible = () => { if (document.visibilityState === 'visible') enterFromUrl() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', enterFromUrl)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', enterFromUrl)
     }
   }, [boot])
 
