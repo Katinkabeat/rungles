@@ -43,11 +43,15 @@ export function summarizeStats(rows) {
 }
 
 // ── personal multiplayer stats ───────────────────────────────────
+// c332: any completed game with a test-account member seated is ignored for
+// BOTH players' win/loss/stats — not just the member's own. So we can't
+// filter by userId alone: we have to know every seat in each of the
+// caller's games and drop the whole game if any seat is a member.
 export async function fetchMyMultiplayerStats(userId) {
   const [playersRes, bestRungRes] = await Promise.all([
     supabase
       .from('rg_players')
-      .select('player_idx, score, rg_games!inner(status, winner_player_idx)')
+      .select('game_id, player_idx, score, rg_games!inner(status, winner_player_idx)')
       .eq('user_id', userId)
       .eq('rg_games.status', 'complete'),
     supabase
@@ -60,7 +64,28 @@ export async function fetchMyMultiplayerStats(userId) {
   if (playersRes.error) throw playersRes.error
   if (bestRungRes.error) throw bestRungRes.error
 
-  const rows = playersRes.data ?? []
+  let rows = playersRes.data ?? []
+  if (rows.length === 0) {
+    return { matches: 0, wins: 0, avgScore: null, bestRung: null }
+  }
+
+  const gameIds = [...new Set(rows.map(r => r.game_id))]
+  const { data: allSeats, error: seatsErr } = await supabase
+    .from('rg_players')
+    .select('game_id, user_id')
+    .in('game_id', gameIds)
+  if (seatsErr) throw seatsErr
+
+  const allUserIds = [...new Set((allSeats ?? []).map(s => s.user_id))]
+  const { data: testIds, error: testErr } = await supabase.rpc('sq_test_account_ids', { uids: allUserIds })
+  if (testErr) throw testErr
+  const testIdSet = new Set(testIds ?? [])
+
+  const excludedGameIds = new Set(
+    (allSeats ?? []).filter(s => testIdSet.has(s.user_id)).map(s => s.game_id)
+  )
+  rows = rows.filter(r => !excludedGameIds.has(r.game_id))
+
   if (rows.length === 0) {
     return { matches: 0, wins: 0, avgScore: null, bestRung: null }
   }
@@ -139,15 +164,27 @@ export async function fetchSoloLeaderboard({ timeframe, date }) {
 
 // Permanent all-time "best single rung ever" badge — separate from the
 // windowed leaderboard so it doesn't change per timeframe.
+// c332: a test-account member's runs never surface here. Rather than a
+// second RPC, over-fetch a small candidate page and filter client-side —
+// simple and correct at this table's size, and avoids a bespoke SQL function
+// for one badge.
 export async function fetchBestRungEver() {
   const { data, error } = await supabase
     .from('rg_solo_games')
     .select('user_id, best_word, best_rung_score, played_at')
     .not('best_rung_score', 'is', null)
     .order('best_rung_score', { ascending: false })
-    .limit(1)
+    .limit(20)
   if (error) throw error
-  const row = (data ?? [])[0]
+  const rows = data ?? []
+  if (rows.length === 0) return null
+
+  const candidateIds = [...new Set(rows.map(r => r.user_id))]
+  const { data: testIds, error: testErr } = await supabase.rpc('sq_test_account_ids', { uids: candidateIds })
+  if (testErr) throw testErr
+  const testIdSet = new Set(testIds ?? [])
+
+  const row = rows.find(r => !testIdSet.has(r.user_id))
   if (!row) return null
 
   const { data: prof } = await supabase

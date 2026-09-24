@@ -28,6 +28,11 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
   // play per user per day. Gate on whether they've already played today.
   const today = atlanticYMD()
   const [daily, setDaily] = useState('checking') // 'checking' | 'playable' | { ...row } already played
+  // Test-account members (c332) may replay the daily as many times as they
+  // like — a small secondary button on the already-played panel, checked
+  // server-side (never trust the client) both here and again by
+  // rg_record_daily_solo on the write itself.
+  const [isTestAccount, setIsTestAccount] = useState(false)
   const [state, setState] = useState(() => loadState() ?? newGameState(dailySeedString()))
   const [banner, setBanner] = useState({ text: '', tone: '' })
   const [flash, setFlash] = useState('')
@@ -63,6 +68,17 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
       .catch(() => { if (alive) setDaily('playable') })
     return () => { alive = false }
   }, [myUserId, today])
+
+  // Membership check for the replay button — cosmetic only (gates whether the
+  // button renders); the server is the actual gate on the write.
+  useEffect(() => {
+    let alive = true
+    if (!myUserId) return
+    supabase.rpc('sq_is_test_account', { uid: myUserId })
+      .then(({ data }) => { if (alive) setIsTestAccount(!!data) })
+      .catch(() => { if (alive) setIsTestAccount(false) })
+    return () => { alive = false }
+  }, [myUserId])
 
   useEffect(() => {
     const onVis = () => { if (document.visibilityState === 'hidden') saveState(state) }
@@ -247,6 +263,21 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
     if (lastRecordRef.current) recordDaily(lastRecordRef.current)
   }
 
+  // Test-account replay (c332): clear today's saved local state and drop back
+  // onto a fresh copy of today's daily, bypassing the already-played gate for
+  // this session. The finish path is untouched — the normal recordDaily call
+  // fires again, and rg_record_daily_solo overwrites today's row server-side
+  // for members. Non-members never see this button; the server re-checks
+  // membership on the write regardless.
+  function handleReplay() {
+    clearSave(today)
+    setDayClosed(false)
+    setRecordState('idle')
+    setEndgameOpen(false)
+    setState(newGameState(dailySeedString()))
+    setDaily('playable')
+  }
+
   const { filled, usedRackIdxs, usedCarriedIdxs } = useBoardDerived(state.selected)
   const preview = filled > 0 ? previewScore(state) : null
   const submitDisabled = state.gameOver || filled < 1
@@ -263,7 +294,13 @@ export default function SoloGamePage({ onBack, profile, onOpenStats, myUserId })
   if (daily !== 'playable') {
     return (
       <DailyShell profile={profile} onOpenStats={onOpenStats} onBack={onBack}>
-        <DailyPlayedPanel row={daily} onOpenStats={onOpenStats} onBack={onBack} />
+        <DailyPlayedPanel
+          row={daily}
+          onOpenStats={onOpenStats}
+          onBack={onBack}
+          isTestAccount={isTestAccount}
+          onReplay={handleReplay}
+        />
       </DailyShell>
     )
   }
@@ -438,7 +475,7 @@ function DailyShell({ profile, onOpenStats, onBack, children }) {
 }
 
 // Shown when the user has already played today's daily.
-function DailyPlayedPanel({ row, onOpenStats, onBack }) {
+function DailyPlayedPanel({ row, onOpenStats, onBack, isTestAccount, onReplay }) {
   return (
     <section className="card text-center space-y-3">
       <h2 className="font-display text-xl text-rungles-700 dark:text-rungles-200">
@@ -459,6 +496,16 @@ function DailyPlayedPanel({ row, onOpenStats, onBack }) {
         <button type="button" className="btn-secondary flex-1" onClick={onBack}>← Lobby</button>
         <button type="button" className="btn-primary flex-1" onClick={onOpenStats}>🏆 Leaderboard</button>
       </div>
+      {/* c332: test-account members only, so this never shows for real players. */}
+      {isTestAccount && (
+        <button
+          type="button"
+          className="text-xs font-bold text-rungles-500 dark:text-rungles-300 hover:underline disabled:opacity-50"
+          onClick={onReplay}
+        >
+          Replay (test account)
+        </button>
+      )}
     </section>
   )
 }
