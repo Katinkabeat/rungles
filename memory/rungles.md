@@ -500,3 +500,6 @@ Follow-up to the 2026-07-14 stale-notification investigation (c285): battery sav
 
 ## 2026-09-24 — Test Accounts group (c332)
 Hub group `test-accounts` (Test + Claude test logins) is excluded from every leaderboard/stat; any MP game with a member seated is ignored for BOTH players; members get a "Replay (test account)" button on the daily finished screen and a replay overwrites the day's row (server-enforced). Check with `sq_is_test_account(uid)` / `sq_test_account_ids(uuid[])`. **Any new leaderboard/stat aggregate must add the exclusion.** Full detail on c332.
+
+## 2026-10-03 — Realtime → Broadcast (c386, `44b6ceb`)
+`supabase/realtime_broadcast.sql`: trigger `rg_broadcast_game_change` on `rg_games` (I/U/D, full row in `new` + `old_status`), `rg_players` (I/U/D), `rg_rungs` (INSERT, game topic only); `rg_racks` not broadcast. New `src/lib/realtimeBroadcast.js` = ref-counted shared private channel per topic (`subscribeTopic`/`unsubscribeTopic`), because lobby list + finish toasts share `rungles:user:<id>` and waiting room + match share `rungles:game:<id>`. `subscribeFinishes(myUserId, cb)` now scoped (old one listened to every rg_games update platform-wide). rg_* tables dropped from the publication.
