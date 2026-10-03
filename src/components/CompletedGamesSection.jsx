@@ -4,7 +4,7 @@ import LobbyResultsBanner from './LobbyResultsBanner.jsx'
 import {
   fetchUnseenResults, subscribeFinishes,
 } from '../lib/lobbyService.js'
-import { supabase } from '../lib/supabase.js'
+import { unsubscribeTopic } from '../lib/realtimeBroadcast.js'
 import { SQCompletedGamesCard } from '../../../rae-side-quest/packages/sq-ui/index.js'
 
 // Self-contained section that fetches the user's last 10 finished games,
@@ -29,7 +29,7 @@ export default function CompletedGamesSection({ myUserId, onEnterGame }) {
     let alive = true
     refreshResults()
 
-    const finishChannel = subscribeFinishes(async (newGame) => {
+    const finishChannel = subscribeFinishes(myUserId, async (newGame) => {
       if (!alive) return
       // Wait briefly so winner_player_idx and forfeit_user_id are settled,
       // then refresh. The freshly-fetched results tell us authoritatively
@@ -61,7 +61,7 @@ export default function CompletedGamesSection({ myUserId, onEnterGame }) {
 
     return () => {
       alive = false
-      supabase.removeChannel(finishChannel)
+      unsubscribeTopic(finishChannel)
     }
   }, [myUserId, refreshResults, onEnterGame])
 

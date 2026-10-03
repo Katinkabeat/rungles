@@ -5,7 +5,7 @@ import {
   fetchLobby, subscribeLobby, joinGame, sendNudge, canNudgeGame, cancelGame, declineInvite,
   isNudgeEnabled, currentPlayerId,
 } from '../lib/lobbyService.js'
-import { supabase } from '../lib/supabase.js'
+import { unsubscribeTopic } from '../lib/realtimeBroadcast.js'
 
 // Active multiplayer games (waiting + active-where-I'm-a-player). Open
 // joinable games come first so users see "things to join" before their
@@ -43,7 +43,7 @@ export default function LobbyList({ myUserId, myUsername, onEnterGame }) {
     let alive = true
     refresh()
     const channel = subscribeLobby(myUserId, () => { if (alive) refresh() })
-    return () => { alive = false; supabase.removeChannel(channel) }
+    return () => { alive = false; unsubscribeTopic(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUserId])
 

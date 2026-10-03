@@ -2,6 +2,7 @@
 // Pure functions only — React component owns state and subscriptions.
 
 import { supabase, rpcWithRetry } from './supabase.js'
+import { subscribeTopic, unsubscribeTopic } from './realtimeBroadcast.js'
 
 // Load everything we need to render the match. Returns
 // { game, players: [{userId, playerIdx, score, username}], rack, rungs, premiumPos }.
@@ -102,33 +103,26 @@ export async function claimInactiveWin(gameId) {
 }
 
 // Game-status subscription used by the waiting room (waiting -> active).
+// Private Broadcast topic rungles:game:<id> (supabase/realtime_broadcast.sql);
+// payload.new is the full rg_games row on UPDATE.
 export function subscribeGameStatus(gameId, onUpdate) {
-  return supabase
-    .channel(`rg_game_${gameId}`)
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'rg_games', filter: `id=eq.${gameId}` },
-      payload => onUpdate(payload.new))
-    .subscribe()
+  return subscribeTopic(`rungles:game:${gameId}`, payload => {
+    if (payload?.table === 'rg_games' && payload.event === 'UPDATE') onUpdate(payload.new)
+  })
 }
 
-// Active-match subscription. Fires three callbacks for the three event streams.
+// Active-match subscription. Routes the game topic's 'change' payloads by
+// payload.table to the three callbacks.
 export function subscribeMatch(gameId, { onRungInsert, onGameUpdate, onPlayerUpdate }) {
-  return supabase
-    .channel(`rg_match_${gameId}`)
-    .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'rg_rungs', filter: `game_id=eq.${gameId}` },
-      payload => onRungInsert?.(payload.new))
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'rg_games', filter: `id=eq.${gameId}` },
-      payload => onGameUpdate?.(payload.new))
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'rg_players', filter: `game_id=eq.${gameId}` },
-      payload => onPlayerUpdate?.(payload.new))
-    .subscribe()
+  return subscribeTopic(`rungles:game:${gameId}`, payload => {
+    if (payload?.table === 'rg_rungs' && payload.event === 'INSERT') onRungInsert?.(payload.new)
+    else if (payload?.table === 'rg_games' && payload.event === 'UPDATE') onGameUpdate?.(payload.new)
+    else if (payload?.table === 'rg_players' && payload.event === 'UPDATE') onPlayerUpdate?.(payload.new)
+  })
 }
 
-export function unsubscribe(channel) {
-  if (channel) supabase.removeChannel(channel)
+export function unsubscribe(handle) {
+  unsubscribeTopic(handle)
 }
 
 // Carry-highlight: returns an array of booleans (length=word) marking which

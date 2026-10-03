@@ -1,4 +1,5 @@
 import { supabase, rpcWithRetry, SUPABASE_URL, SUPABASE_ANON } from './supabase.js'
+import { subscribeTopic } from './realtimeBroadcast.js'
 // Imported from the utils module rather than sq-ui's index so this non-React
 // lib file doesn't pull the package's JSX components into its chunk.
 import {
@@ -72,28 +73,15 @@ export async function fetchLobby(myUserId) {
   return { games: visible, usernameById }
 }
 
-// Subscribes to rg_games + rg_players changes scoped to this user.
-// Returns the channel — caller is responsible for
-// `supabase.removeChannel(channel)` on cleanup.
-//
-// Tradeoff: filters are server-side, so we only fire onChange for rows
-// that touch this user (games I created, games I'm invited to, and my
-// player rows). Open public games created by others won't push live;
-// they appear on the next manual refresh / navigation. Without this
-// scoping, every move on the platform triggered a full lobby rebuild.
+// Subscribes to the private per-user Broadcast topic rungles:user:<id>
+// (supabase/realtime_broadcast.sql). The DB trigger only sends changes to
+// games I created, was invited to, or play in (plus my own rg_players rows),
+// so other players' activity never reaches this client. Open public games
+// created by others won't push live; they appear on the next manual refresh /
+// navigation.
+// Returns a handle — caller must pass it to `unsubscribeTopic(handle)`.
 export function subscribeLobby(myUserId, onChange) {
-  return supabase
-    .channel(`lobby_rg_games_${myUserId}`)
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_games',
-        filter: `created_by=eq.${myUserId}` }, onChange)
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_games',
-        filter: `invited_user_id=eq.${myUserId}` }, onChange)
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: 'rg_players',
-        filter: `user_id=eq.${myUserId}` }, onChange)
-    .subscribe()
+  return subscribeTopic(`rungles:user:${myUserId}`, () => onChange())
 }
 
 // Returns the user's last 10 finished games (most recent first).
@@ -169,20 +157,18 @@ export async function fetchUnseenResults(myUserId) {
   })
 }
 
-// Lobby-scoped subscription that fires onFinish(gameId) when any rg_games row
-// flips to status='complete'. Caller filters to "games I'm in" using its own
-// player-membership snapshot (we don't have that info in the payload).
-export function subscribeFinishes(onFinish) {
-  return supabase
-    .channel('lobby_rg_finishes')
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'rg_games' },
-      (payload) => {
-        if (payload.new?.status === 'complete' && payload.old?.status !== 'complete') {
-          onFinish(payload.new)
-        }
-      })
-    .subscribe()
+// Fires onFinish(newGame) when an rg_games row I'm part of flips to
+// status='complete' (delivered on my private user topic; caller still checks
+// its own refreshed results to confirm). payload.new is the full rg_games row,
+// payload.old_status the previous status.
+// Returns a handle — pass it to `unsubscribeTopic(handle)`.
+export function subscribeFinishes(myUserId, onFinish) {
+  return subscribeTopic(`rungles:user:${myUserId}`, (payload) => {
+    if (payload?.table === 'rg_games' && payload.event === 'UPDATE' &&
+        payload.new?.status === 'complete' && payload.old_status !== 'complete') {
+      onFinish(payload.new)
+    }
+  })
 }
 
 /**
